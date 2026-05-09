@@ -124,8 +124,17 @@ function createWindow() {
     frame: false, titleBarStyle: 'hidden',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
-      contextIsolation: true, nodeIntegration: false, sandbox: true,
-      webSecurity: true, allowRunningInsecureContent: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      // sandbox: false ist gewollt: contextBridge + sandbox=true blockt
+      // den webUtils-require im Preload, dadurch wuerde window.electronAPI
+      // nie gesetzt und der Renderer denkt er sei im Browser-Modus
+      // (kein Pin/Min/Max/Close, kein Drag-Out). contextIsolation +
+      // nodeIntegration=false plus die Pfad-Whitelist halten die
+      // Sicherheitsstory aufrecht.
+      sandbox: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
       disableBlinkFeatures: 'Auxclick',
     },
   });

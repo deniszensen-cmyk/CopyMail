@@ -1,0 +1,42 @@
+CopyMail - Schnellstart
+=======================
+
+Was ist das?
+------------
+CopyMail extrahiert den Inhalt aus einer .msg- oder .eml-Mail und legt ihn
+zusammen mit der Originaldatei in die Zwischenablage. So koennen Sie eine
+Mail mit Anhang in Sekunden in eine neue Mail (Outlook, eM Client, Word,
+Teams) einfuegen.
+
+So nutzen Sie es
+-----------------
+1) Doppelklick auf "CopyMail.exe" - das Fenster oeffnet sich.
+2) Eine .msg- oder .eml-Datei in das Fenster ziehen.
+3) Modus waehlen: "Text" (formatierter Mail-Text) oder
+   "Datei" (Original-Maildatei als Anhang).
+4) Klick auf "Kopieren" - oder einfach Strg+C.
+5) Im Ziel-Programm einfuegen mit Strg+V.
+
+Tipp: Sie koennen auch mehrere Mails gleichzeitig hineinziehen. Alle landen
+dann gemeinsam in der Zwischenablage.
+
+Keine Installation noetig
+--------------------------
+"CopyMail.exe" ist eine portable Anwendung. Sie koennen sie irgendwohin
+kopieren - Desktop, USB-Stick, Netzlaufwerk. Es werden keine Eintraege in
+der Registry oder in Programme geschrieben.
+
+Wenn Sie eine richtige Installation mit Desktop-Verknuepfung wollen,
+finden Sie im Unterordner "_Installer" einen klassischen Setup-Assistenten.
+
+Datenschutz
+-----------
+- Keine Cloud-Verbindung, keine Telemetrie.
+- Tracking-Pixel und schaedliche Skripte werden vor der Anzeige entfernt.
+- Mail-Dateien bleiben dort, wo Sie sie gespeichert haben.
+
+Mehr Details
+------------
+Ausfuehrliche Anleitung: BENUTZERHANDBUCH.pdf (im selben Ordner).
+
+Bei Fragen: an die IT-Abteilung wenden, die Ihnen dieses Paket gegeben hat.

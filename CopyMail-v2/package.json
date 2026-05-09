@@ -1,0 +1,111 @@
+{
+  "name": "copymail-v2",
+  "private": true,
+  "version": "1.2.0",
+  "description": "Extrahiert E-Mail-Inhalte aus .msg und .eml Dateien und kopiert Text plus Maildatei formatiert in die Zwischenablage.",
+  "license": "MIT",
+  "author": "Denis Zensen",
+  "homepage": "https://github.com/deniszensen-cmyk/CopyMail",
+  "bugs": {
+    "url": "https://github.com/deniszensen-cmyk/CopyMail/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deniszensen-cmyk/CopyMail.git",
+    "directory": "CopyMail-v2"
+  },
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite --port 5180 --logLevel warn --clearScreen false",
+    "build": "tsc -b && vite build --logLevel warn",
+    "build:helper": "powershell -ExecutionPolicy Bypass -File native/ClipboardHelper/build.ps1",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "preview": "vite preview",
+    "electron:dev": "concurrently --raw --kill-others-on-fail \"npm run dev\" \"wait-on -l http://localhost:5180 && electron .\"",
+    "electron:build": "npm run build:helper && npm run build && electron-builder",
+    "electron:build:win": "npm run build:helper && npm run build && electron-builder --win",
+    "electron:build:portable": "npm run build:helper && npm run build && electron-builder --win portable",
+    "package": "powershell -ExecutionPolicy Bypass -File ../scripts/package-portable.ps1",
+    "release:patch": "powershell -ExecutionPolicy Bypass -File ../scripts/release.ps1 patch",
+    "release:minor": "powershell -ExecutionPolicy Bypass -File ../scripts/release.ps1 minor",
+    "release:major": "powershell -ExecutionPolicy Bypass -File ../scripts/release.ps1 major"
+  },
+  "build": {
+    "appId": "de.copymail.app.v2",
+    "productName": "CopyMail v2",
+    "copyright": "Copyright © 2025 Denis Zensen",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "deniszensen-cmyk",
+        "repo": "CopyMail"
+      }
+    ],
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "native/ClipboardHelper/publish",
+        "to": "clipboard-helper",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "public/icon.ico",
+      "artifactName": "${productName}-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "CopyMail-${version}-portable.${ext}"
+    }
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.1.0",
+    "dompurify": "^3.2.4",
+    "electron-log": "^5.2.0",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^0.460.0",
+    "postal-mime": "^2.7.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.12.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.1.2",
+    "electron": "^36.3.0",
+    "electron-builder": "^26.0.12",
+    "eslint": "^10.2.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.5.0",
+    "jsdom": "^25.0.1",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.58.2",
+    "vite": "^8.0.10",
+    "vitest": "^3.0.5",
+    "@vitest/coverage-v8": "^3.0.5",
+    "wait-on": "^8.0.3"
+  }
+}

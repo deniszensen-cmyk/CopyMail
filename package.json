@@ -1,5 +1,5 @@
 {
-  "name": "copymail-v2",
+  "name": "copymail",
   "private": true,
   "version": "1.2.0",
   "description": "Extrahiert E-Mail-Inhalte aus .msg und .eml Dateien und kopiert Text plus Maildatei formatiert in die Zwischenablage.",
@@ -11,8 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deniszensen-cmyk/CopyMail.git",
-    "directory": "CopyMail-v2"
+    "url": "git+https://github.com/deniszensen-cmyk/CopyMail.git"
   },
   "type": "module",
   "main": "electron/main.cjs",
@@ -29,10 +28,10 @@
     "electron:build": "npm run build:helper && npm run build && electron-builder",
     "electron:build:win": "npm run build:helper && npm run build && electron-builder --win",
     "electron:build:portable": "npm run build:helper && npm run build && electron-builder --win portable",
-    "package": "powershell -ExecutionPolicy Bypass -File ../scripts/package-portable.ps1",
-    "release:patch": "powershell -ExecutionPolicy Bypass -File ../scripts/release.ps1 patch",
-    "release:minor": "powershell -ExecutionPolicy Bypass -File ../scripts/release.ps1 minor",
-    "release:major": "powershell -ExecutionPolicy Bypass -File ../scripts/release.ps1 major"
+    "package": "powershell -ExecutionPolicy Bypass -File scripts/package-portable.ps1",
+    "release:patch": "powershell -ExecutionPolicy Bypass -File scripts/release.ps1 patch",
+    "release:minor": "powershell -ExecutionPolicy Bypass -File scripts/release.ps1 minor",
+    "release:major": "powershell -ExecutionPolicy Bypass -File scripts/release.ps1 major"
   },
   "build": {
     "appId": "de.copymail.app.v2",

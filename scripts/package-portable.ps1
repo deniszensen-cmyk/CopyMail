@@ -5,25 +5,23 @@
 # unter ./release/ ein ZIP, das du an Endnutzer ausliefern kannst.
 #
 # Voraussetzung: vorher
-#     cd CopyMail-v2
 #     npm install
 #     npm run build:helper
 #     npm run electron:build:portable
 #
 # Aufruf:
-#     npm run package         (aus CopyMail-v2/)
+#     npm run package
 # oder direkt:
 #     powershell -ExecutionPolicy Bypass -File scripts/package-portable.ps1
 
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$v2Dir = Join-Path $repoRoot 'CopyMail-v2'
-$distDir = Join-Path $v2Dir 'dist-electron'
+$distDir = Join-Path $repoRoot 'dist-electron'
 $releaseDir = Join-Path $repoRoot 'release'
 
 # 1. Version aus package.json lesen
-$pkg = Get-Content (Join-Path $v2Dir 'package.json') -Raw | ConvertFrom-Json
+$pkg = Get-Content (Join-Path $repoRoot 'package.json') -Raw | ConvertFrom-Json
 $version = $pkg.version
 Write-Host "Building distribution for CopyMail v$version"
 

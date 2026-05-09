@@ -50,7 +50,7 @@ Der manuelle Klick ist der saubere Mittelweg.
 
 Beides ist im Repo bereits eingerichtet:
 
-- `CopyMail-v2/package.json` zeigt auf `deniszensen-cmyk/CopyMail` (`repository`,
+- `package.json` zeigt auf `deniszensen-cmyk/CopyMail` (`repository`,
   `homepage`, `bugs`, `build.publish`).
 - `.github/workflows/release.yml` ist angelegt und triggert auf Tag-Pushes
   `v*` (siehe unten).
@@ -90,7 +90,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: CopyMail-v2/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install
         run: npm ci
@@ -156,14 +156,13 @@ git remote add origin https://github.com/deniszensen-cmyk/CopyMail.git
 git push -u origin main
 
 # Jeder weitere Release:
-cd CopyMail-v2
 npm run release:patch   # 1.2.0 -> 1.2.1
 # oder npm run release:minor / npm run release:major
 ```
 
 Das Skript `scripts/release.ps1` macht alles in einem Rutsch:
 1. Prüft, dass dein Working-Tree sauber ist und dass du auf `main` bist.
-2. Bumpt die Version in `CopyMail-v2/package.json` und `package-lock.json`.
+2. Bumpt die Version in `package.json` und `package-lock.json`.
 3. Committet als „chore(release): vX.Y.Z".
 4. Setzt das Tag `vX.Y.Z`.
 5. Pusht `main` und das Tag zu GitHub.
@@ -174,7 +173,6 @@ Release mit NSIS-EXE, Portable-EXE, ZIP-Paket und PDF an.
 ### Variante B · Manuell
 
 ```powershell
-cd CopyMail-v2
 npm version patch
 cd ..
 git push origin main --follow-tags
@@ -184,7 +182,7 @@ git push origin main --follow-tags
 
 Wenn du keine Lust auf lokales Versions-Bumping hast:
 
-1. `CopyMail-v2/package.json` direkt im Web-Editor ändern, neue Version
+1. `package.json` direkt im Web-Editor ändern, neue Version
    committen.
 2. Auf der GitHub-Repo-Seite: **Releases → Draft a new release**.
 3. Tag-Namen `v1.3.0` (matched `tags: v*` im Workflow), Title
@@ -270,7 +268,7 @@ deine `release.json` aktualisiert:
   shell: pwsh
   run: |
     $version = "${{ github.ref_name }}".TrimStart('v')
-    $portable = (Get-ChildItem CopyMail-v2/dist-electron/*portable*.exe | Select-Object -First 1).Name
+    $portable = (Get-ChildItem dist-electron/*portable*.exe | Select-Object -First 1).Name
     $url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$portable"
     $json = @{
       version = $version

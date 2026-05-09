@@ -9,7 +9,7 @@
 #
 # Was es tut:
 #   1) prueft, dass der Working-Tree sauber ist
-#   2) bumpt die Version in CopyMail-v2/package.json (npm version)
+#   2) bumpt die Version in package.json (npm version)
 #   3) committet + tagt
 #   4) pusht main + Tag
 # Der GitHub-Actions-Workflow .github/workflows/release.yml uebernimmt
@@ -41,23 +41,16 @@ if ($branch -ne 'main') {
 }
 
 # 3) Version bumpen
-Push-Location (Join-Path $repoRoot 'CopyMail-v2')
-try {
-    Write-Host "npm version $Bump ..."
-    $newTag = (npm version $Bump --no-git-tag-version) | Select-Object -Last 1
-    if (-not $newTag) {
-        throw "npm version hat keine Versionsnummer geliefert."
-    }
-    $version = $newTag.TrimStart('v')
-    Write-Host "neue Version: $version"
+Write-Host "npm version $Bump ..."
+$newTag = (npm version $Bump --no-git-tag-version) | Select-Object -Last 1
+if (-not $newTag) {
+    throw "npm version hat keine Versionsnummer geliefert."
 }
-finally {
-    Pop-Location
-}
+$version = $newTag.TrimStart('v')
+Write-Host "neue Version: $version"
 
-# 4) Commit + Tag im Repo-Root
-Set-Location $repoRoot
-git add CopyMail-v2/package.json CopyMail-v2/package-lock.json
+# 4) Commit + Tag
+git add package.json package-lock.json
 git commit -m "chore(release): v$version"
 git tag "v$version"
 

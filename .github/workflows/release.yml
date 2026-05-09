@@ -1,6 +1,5 @@
 name: Release
 
-# Wird ausgelöst, sobald ein Tag wie v1.2.0, v1.3.0 etc. gepusht wird.
 on:
   push:
     tags:
@@ -14,9 +13,6 @@ jobs:
   build:
     name: Build & Release (Windows)
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: CopyMail-v2
 
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +22,6 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: CopyMail-v2/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -39,35 +34,21 @@ jobs:
 
       - name: Build native helper (.NET 4.x csc)
         run: npm run build:helper
-        # Hinweis: windows-latest enthält das .NET Framework Developer Pack
-        # 4.x. Falls dein Forks ohne csc.exe baut, ergänze hier ein Setup-Step
-        # für die VS Build Tools.
 
       - name: Build Electron (NSIS + Portable)
         run: npm run electron:build:win
         env:
-          # electron-builder publish=never: GitHub-Release erzeugt der
-          # nachfolgende softprops-Step. Damit haben wir vollen Zugriff
-          # auf alle Artefakte für den Anhang.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # electron-builder verlangt explizit "never" wenn man nicht
-          # automatisch zu GitHub publishen will.
-          # Setze stattdessen "always" wenn der publish-Workflow von
-          # electron-builder selbst übernehmen soll – dann brauchst du
-          # den softprops-Step weiter unten nicht.
-          # Wir bleiben auf "never" für mehr Kontrolle.
-          # publish-Flag wird über CLI gesteuert; siehe electron:build:win.
 
       - name: Stage release assets
         shell: pwsh
         run: |
           $stage = "${{ github.workspace }}\release"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
-          Copy-Item CopyMail-v2\dist-electron\*.exe $stage -Force
+          Copy-Item dist-electron\*.exe $stage -Force
           if (Test-Path BENUTZERHANDBUCH.pdf) { Copy-Item BENUTZERHANDBUCH.pdf $stage -Force }
           if (Test-Path BENUTZERHANDBUCH.docx) { Copy-Item BENUTZERHANDBUCH.docx $stage -Force }
           if (Test-Path LIESMICH.txt) { Copy-Item LIESMICH.txt $stage -Force }
-          # Portable + Doku zusätzlich als ZIP für Endnutzer
           $version = "${{ github.ref_name }}".TrimStart('v')
           $zipName = "CopyMail-$version.zip"
           $zipPath = Join-Path $stage $zipName
@@ -87,7 +68,6 @@ jobs:
             Compress-Archive -Path "$tmp\*" -DestinationPath $zipPath -CompressionLevel Optimal
           }
           Get-ChildItem $stage | ForEach-Object { Write-Host "asset: $($_.Name)" }
-        working-directory: ${{ github.workspace }}
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

@@ -278,7 +278,7 @@ verlassen Ihren Rechner nicht.**
   CopyMail kopiert nichts in Hintergrundordner und legt keine Logs an.
 - Beim Einfügen in eine neue Mail entscheiden Sie selbst, was passiert.
 
-Wer technisch interessiert ist: `CopyMail-v2/README.md` und `CODE_REVIEW.md`
+Wer technisch interessiert ist: `ARCHITECTURE.md` und `CODE_REVIEW.md`
 beschreiben die Sicherheitsmaßnahmen im Detail (Sandboxing, Content
 Security Policy, Pfad-Whitelist, HTML-Sanitizer).
 

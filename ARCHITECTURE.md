@@ -1,26 +1,29 @@
-# CopyMail v2
+# Architektur
 
 Kleine Windows-Desktop-Anwendung (Electron + React + Vite), die `.msg`- und
 `.eml`-Dateien einliest, eine Vorschau zeigt und den Mailinhalt als formatierten
 Text **plus** die Originaldatei in einem Schritt in die Windows-Zwischenablage
-schreibt. Inhalt der Mail verlässt den Rechner nicht.
+schreibt.
 
-## Architektur
+## Komponenten
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Electron-Main (Node)         electron/main.cjs              │
 │  • IPC: register-file, copy-to-clipboard, start-drag, ...   │
 │  • CSP per webRequest, Sandbox-Renderer, Pfad-Whitelist     │
+│  • Tray-Icon, Globaler Hotkey Ctrl+Alt+M                    │
 │  • spawnt den C#-Helper bei Bedarf                          │
 ├─────────────────────────────────────────────────────────────┤
 │ Preload (sandboxed)          electron/preload.cjs           │
 │  • exposes contextBridge.electronAPI                        │
 ├─────────────────────────────────────────────────────────────┤
 │ Renderer (React 19)          src/                           │
-│  • UI, Drag&Drop, Vorschau                                  │
-│  • src/utils/EmailProcessor.ts (Sanitizer + Format)         │
+│  • UI, Drag&Drop, Vorschau, Settings, Update-Banner         │
+│  • src/utils/EmailProcessor.ts (DOMPurify-Sanitizer)        │
 │  • src/utils/MsgParser.ts (eigener OLE2-/MAPI-Parser)       │
+│  • src/utils/forwardTemplate.ts (eigene Templates)          │
+│  • src/components/* (UI-Bausteine)                          │
 ├─────────────────────────────────────────────────────────────┤
 │ Native Helper (.NET 4.8)     native/ClipboardHelper/        │
 │  • Schreibt FileDrop + UnicodeText + HTML-Format            │
@@ -34,7 +37,8 @@ schreibt. Inhalt der Mail verlässt den Rechner nicht.
 - `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`.
 - `Content-Security-Policy` per Meta-Tag **und** per `onHeadersReceived`-Header.
 - Mail-HTML wird vor dem Rendern und vor dem Clipboard-Write durch
-  **DOMPurify** sanitisiert.
+  **DOMPurify** sanitisiert (mit Hooks gegen Outlook-/VML-/MathML-Reste und
+  gefährliche `style: url(http…)`-Inhalte).
 - `start-drag` und `copy-to-clipboard` akzeptieren ausschließlich Pfade aus
   einer Main-seitig gepflegten Whitelist (Pfad wird einmal beim Drop/Pick
   registriert).
@@ -62,13 +66,14 @@ Visual Studio 2022).
 ## Tests
 
 ```powershell
-npm test          # einmalig
-npm run test:watch
+npm test            # einmalig
+npm run test:watch  # watch-mode
+npm run test:coverage
 ```
 
 Vitest mit `jsdom`-Umgebung. Tests liegen in `src/**/*.test.ts(x)`.
 
-## Build (Installer)
+## Build (Installer + Portable)
 
 ```powershell
 npm install
@@ -77,16 +82,22 @@ npm run build
 npm run electron:build:win
 ```
 
-Ergebnis: `dist-electron/CopyMail v2 Setup x.x.x.exe` (NSIS, oneClick,
-perUser).
+Ergebnisse in `dist-electron/`:
+- `CopyMail v2-1.2.0-Setup.exe` – NSIS-Installer (oneClick, perUser)
+- `CopyMail-1.2.0-portable.exe` – Portable EXE (kein Installer nötig)
 
-## Versionshinweise
+Anschließend `npm run package` baut ein User-fertiges ZIP mit Doku.
 
-- **v1.2.0** – DOMPurify-Sanitizer, CSP, Sandbox-Renderer, Pfad-Whitelist,
-  dynamische MAPI-Codepage, Race-Schutz beim Drop, Vitest-Setup, CI.
-- **v1.1.0** – C#-Helper für Windows-Clipboard-Mehrformat, „Beides"-Modus
-  entfernt.
+## Verzeichnisstruktur
 
-## Verwandt
-
-- `../CopyMail/` – Legacy-v1, siehe [LEGACY.md](../LEGACY.md).
+```
+.
+├── src/                # Renderer (React + TypeScript)
+├── electron/           # Main + Preload (CommonJS)
+├── native/             # C#-Helper für Windows-Clipboard
+├── public/             # Statische Assets (Icon, mail-icon.png)
+├── scripts/            # PowerShell-Helfer (Release, Packaging)
+├── .github/workflows/  # CI + Release auf GitHub Actions
+├── legacy/v1/          # Archivierte v1 (siehe LEGACY.md)
+└── *.md                # Doku
+```

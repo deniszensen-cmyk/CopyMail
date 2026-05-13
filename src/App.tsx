@@ -292,11 +292,11 @@ function App() {
   useEffect(() => { handleCopyRef.current = handleCopy; });
 
   const onDragStart = (e: React.DragEvent) => {
-    const first = filePaths[0];
-    if (isElectron && first) {
-      e.preventDefault();
-      window.electronAPI!.startDrag(first);
-    }
+    if (!isElectron || filePaths.length === 0) return;
+    e.preventDefault();
+    // Bei mehreren ausgewaehlten Mails: alle Pfade gleichzeitig ziehen.
+    // Electron 30+ unterstuetzt das via files-Array im startDrag-Payload.
+    window.electronAPI!.startDrag(filePaths.length === 1 ? filePaths[0]! : filePaths);
   };
 
   /** Kopiert eine einzelne Mail per Klick aus der Liste. */

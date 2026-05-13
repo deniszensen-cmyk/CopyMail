@@ -66,9 +66,15 @@ function saveConfig(cfg) {
 }
 
 function installCsp() {
+  // In Production laeuft die App mit file:// als Origin. Wir muessen file:
+  // explizit erlauben, sonst blockt der CSP Fonts/Images/Scripte aus dem
+  // gepackten asar -> kein CSS, keine Titlebar, leeres Fenster.
   const cspProd =
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-    "font-src 'self' data:; img-src 'self' data: blob: cid: https:; " +
+    "default-src 'self' file:; " +
+    "script-src 'self' file:; " +
+    "style-src 'self' file: 'unsafe-inline'; " +
+    "font-src 'self' file: data:; " +
+    "img-src 'self' file: data: blob: cid: https:; " +
     "connect-src 'self' https:; " +
     "frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';";
   const cspDev =
@@ -141,12 +147,23 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5180');
-    if (process.env.COPYMAIL_DEVTOOLS === '1') {
-      mainWindow.webContents.openDevTools({ mode: 'detach' });
-    }
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+  // DevTools in dev und production per Env-Variable steuerbar
+  if (process.env.COPYMAIL_DEVTOOLS === '1') {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+  // F12 oeffnet DevTools auch in Production (zum Debuggen vor Ort)
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
+    if (input.key === 'F12' && input.type === 'keyDown') {
+      if (mainWindow.webContents.isDevToolsOpened()) {
+        mainWindow.webContents.closeDevTools();
+      } else {
+        mainWindow.webContents.openDevTools({ mode: 'detach' });
+      }
+    }
+  });
 
   hardenWebContents(mainWindow.webContents);
 
@@ -260,11 +277,24 @@ ipcMain.handle(IPC.Config.Path, () => configPath());
 ipcMain.handle(IPC.Files.Register, (_e, filePath) => registerFile(filePath));
 
 ipcMain.on(IPC.Files.StartDrag, (event, filePath) => {
-  if (!isAllowedPath(filePath)) return;
-  const absolute = path.resolve(filePath);
+  // filePath kann String oder String[] sein. Wir akzeptieren beide.
+  const candidates = Array.isArray(filePath) ? filePath : [filePath];
+  const valid = candidates
+    .filter((p) => isAllowedPath(p))
+    .map((p) => path.resolve(p));
+  if (valid.length === 0) return;
+
   const iconPath = getMailIconPath();
   const icon = iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
-  event.sender.startDrag({ file: absolute, icon });
+
+  // Electron 30+ kennt `files`-Array. Wir geben beides an: das aktive Feld
+  // entscheidet die Electron-Runtime; bei Multi-Drop fuegt das Ziel-Programm
+  // alle Pfade an.
+  event.sender.startDrag({
+    file: valid[0],
+    files: valid,
+    icon,
+  });
 });
 
 ipcMain.handle(IPC.Clipboard.Copy, async (_event, payload) => {

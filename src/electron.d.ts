@@ -18,7 +18,7 @@ export interface ElectronAPI {
   setAlwaysOnTop: (value: boolean) => Promise<boolean>;
   getAlwaysOnTop: () => Promise<boolean>;
   copyToClipboard: (data: ClipboardPayload) => Promise<ClipboardResult>;
-  startDrag: (path: string) => void;
+  startDrag: (path: string | string[]) => void;
   registerFile: (path: string) => Promise<string | null>;
   getPathForFile: (file: File) => string;
   windowMinimize: () => Promise<void>;

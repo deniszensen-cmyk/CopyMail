@@ -728,7 +728,65 @@ h1 {
   text-align: center;
 }
 
-/* ===== Mail-Tabs ===== */
+/* ===== Mail-Liste (Win+V-Stil bei Multi-Drop) ===== */
+.mail-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+.mail-list-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-1);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+.mail-list-select-all { display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; }
+.mail-list-hint { color: var(--text-faint); font-size: 11px; }
+.mail-list-item {
+  display: grid;
+  grid-template-columns: 22px 44px 1fr 24px;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: background var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+  align-items: center;
+}
+.mail-list-item:hover { background: rgba(99, 102, 241, 0.07); border-color: rgba(99, 102, 241, 0.3); }
+.mail-list-item.selected { border-color: rgba(99, 102, 241, 0.5); }
+.mail-list-item.just-copied { background: rgba(52, 211, 153, 0.12); border-color: rgba(52, 211, 153, 0.4); }
+.mail-list-check { width: 16px; height: 16px; cursor: pointer; }
+.mail-list-drag {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  border-radius: var(--radius-sm);
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  cursor: grab;
+}
+.mail-list-drag.disabled { cursor: not-allowed; opacity: 0.4; }
+.mail-list-drag:active:not(.disabled) { cursor: grabbing; }
+.mail-list-drag img { width: 22px; height: 22px; pointer-events: none; }
+.mail-list-content {
+  display: block; text-align: left; background: transparent; border: none;
+  color: var(--text-primary); font: inherit; padding: 0; cursor: pointer; overflow: hidden;
+}
+.mail-list-row { display: flex; justify-content: space-between; gap: var(--space-2); font-size: var(--font-xs); color: var(--text-muted); }
+.mail-list-from { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mail-list-date { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+.mail-list-subject { font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.mail-list-snippet { font-size: var(--font-xs); color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.mail-list-action { color: var(--text-faint); display: inline-flex; align-items: center; justify-content: center; }
+.mail-list-item.just-copied .mail-list-action { color: var(--success); }
+
+/* ===== Mail-Tabs (Legacy, wird bei mehreren Mails durch MailList ersetzt) ===== */
 .mail-tabs {
   display: flex;
   gap: var(--space-1);

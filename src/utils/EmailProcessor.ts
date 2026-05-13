@@ -250,3 +250,32 @@ export function escHtml(s: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+/**
+ * Verkettet mehrere Mails zu einem einzigen Forward-Block, getrennt durch eine
+ * Trennlinie. Reihenfolge = Eingabe-Reihenfolge.
+ */
+export function formatCombinedEmails(
+  emails: EmailData[],
+  opts: FormatOptions = {},
+): { text: string; html: string } {
+  if (emails.length === 0) return { text: '', html: '' };
+  if (emails.length === 1) return formatForwardedEmail(emails[0]!, opts);
+
+  const parts = emails.map((e) => formatForwardedEmail(e, opts));
+  const textSeparator = '\n\n---\n\n';
+  const htmlSeparator =
+    '<hr style="border:none;border-top:1px solid #cbd5e1;margin:18pt 0;">';
+
+  return {
+    text: parts.map((p) => p.text.trim()).join(textSeparator),
+    html: parts.map((p) => p.html).join(htmlSeparator),
+  };
+}
+
+/** Kurzes Text-Snippet fuer Listenansicht. */
+export function snippet(data: EmailData, maxLen = 160): string {
+  const raw = (data.body || '').replace(/\s+/g, ' ').trim();
+  if (raw.length <= maxLen) return raw;
+  return raw.slice(0, maxLen).trimEnd() + '…';
+}

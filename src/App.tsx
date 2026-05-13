@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   processEmailFile,
   formatForwardedEmail,
+  formatCombinedEmails,
   sanitizeMailHtml,
   escHtml,
   isSupportedFile,
@@ -15,7 +16,7 @@ import { Titlebar } from './components/Titlebar';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { HelpDialog } from './components/HelpDialog';
 import { UpdateBanner } from './components/UpdateBanner';
-import { MailTabs } from './components/MailTabs';
+import { MailList } from './components/MailList';
 import { AttachmentList } from './components/AttachmentList';
 import { SearchBar } from './components/SearchBar';
 import { highlight } from './utils/highlight';
@@ -41,6 +42,7 @@ function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [emails, setEmails] = useState<ProcessedEmail[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,9 +64,13 @@ function App() {
 
   const primary = emails[activeIndex] ?? emails[0];
   const emailData = primary?.data ?? null;
+  const selectedEntries = useMemo(
+    () => emails.filter((_, i) => selectedIndices.has(i)),
+    [emails, selectedIndices],
+  );
   const filePaths = useMemo(
-    () => emails.map((e) => e.path).filter((p): p is string => !!p),
-    [emails],
+    () => selectedEntries.map((e) => e.path).filter((p): p is string => !!p),
+    [selectedEntries],
   );
   const hasFilePaths = filePaths.length > 0;
   const copyMode: CopyMode = copyModeOverride ?? settings.defaultMode;
@@ -87,15 +93,20 @@ function App() {
     });
   }, [settings.autoCheckUpdates, settings.updateUrl]);
 
-  // Forward-Format
+  // Forward-Format: bei mehreren ausgewählten Mails verkettete Version,
+  // sonst die aktive Einzelmail.
   const formattedContent = useMemo(() => {
     if (!emailData) return null;
-    return formatForwardedEmail(emailData, {
+    const opts = {
       templateText: settings.forwardTemplateText,
       templateHtml: settings.forwardTemplateHtml,
       allowExternalImages: settings.allowExternalImages,
-    });
-  }, [emailData, settings.forwardTemplateText, settings.forwardTemplateHtml, settings.allowExternalImages]);
+    };
+    if (selectedEntries.length > 1) {
+      return formatCombinedEmails(selectedEntries.map((e) => e.data), opts);
+    }
+    return formatForwardedEmail(emailData, opts);
+  }, [emailData, selectedEntries, settings.forwardTemplateText, settings.forwardTemplateHtml, settings.allowExternalImages]);
 
   useEffect(() => { if (formattedContent) copyBtnRef.current?.focus(); }, [formattedContent]);
 
@@ -117,6 +128,7 @@ function App() {
     requestSeq.current++;
     setEmails([]);
     setActiveIndex(0);
+    setSelectedIndices(new Set());
     setError(null);
     setCopied(false);
     setShowPulse(false);
@@ -216,6 +228,8 @@ function App() {
       if (seq !== requestSeq.current) return;
       setEmails(processed);
       setActiveIndex(0);
+      // Beim Drop alle Mails standardmaessig auswaehlen (fuer Combined-Text).
+      setSelectedIndices(new Set(processed.map((_, i) => i)));
       if (rejected.length > 0) setError(`Übersprungen: ${rejected.join(' · ')}`);
       if (!reduceMotion) setShowPulse(true);
     } catch (err: unknown) {
@@ -283,6 +297,52 @@ function App() {
       e.preventDefault();
       window.electronAPI!.startDrag(first);
     }
+  };
+
+  /** Kopiert eine einzelne Mail per Klick aus der Liste. */
+  const handleCopyOne = async (index: number): Promise<{ success: boolean }> => {
+    const entry = emails[index];
+    if (!entry) return { success: false };
+    try {
+      const formatted = formatForwardedEmail(entry.data, {
+        templateText: settings.forwardTemplateText,
+        templateHtml: settings.forwardTemplateHtml,
+        allowExternalImages: settings.allowExternalImages,
+      });
+      if (isElectron) {
+        const res = await window.electronAPI!.copyToClipboard({
+          text: formatted.text,
+          html: formatted.html,
+        });
+        return { success: !!res.success };
+      }
+      await browserClipboardWrite(formatted.text, formatted.html);
+      return { success: true };
+    } catch {
+      return { success: false };
+    }
+  };
+
+  /** Drag-out für eine einzelne Mail aus der Liste. */
+  const onListDragStart = (index: number, e: React.DragEvent) => {
+    const entry = emails[index];
+    if (!entry || !entry.path || !isElectron) return;
+    e.preventDefault();
+    window.electronAPI!.startDrag(entry.path);
+  };
+
+  const toggleSelected = (index: number) => {
+    setSelectedIndices((cur) => {
+      const next = new Set(cur);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  const setAllSelected = (selected: boolean) => {
+    if (!selected) setSelectedIndices(new Set());
+    else setSelectedIndices(new Set(emails.map((_, i) => i)));
   };
 
   const sanitizedPreview = useMemo(() => {
@@ -391,7 +451,17 @@ function App() {
                 transition={{ duration: reduceMotion ? 0 : 0.25 }}
                 className="preview-panel"
               >
-                <MailTabs emails={emails} activeIndex={activeIndex} onSelect={setActiveIndex} />
+                {emails.length > 1 && (
+                  <MailList
+                    entries={emails}
+                    selectedIndices={selectedIndices}
+                    onToggleSelected={toggleSelected}
+                    onSelectAll={setAllSelected}
+                    onCopyOne={handleCopyOne}
+                    onDragStart={onListDragStart}
+                    reduceMotion={reduceMotion}
+                  />
+                )}
 
                 <div className="preview-toolbar">
                   <div
@@ -415,16 +485,20 @@ function App() {
                     <button
                       onClick={() => setCopyMode('text')}
                       className={effectiveCopyMode === 'text' ? 'active' : ''}
-                      title="Nur Text kopieren (Strg+M)"
+                      title={selectedEntries.length > 1
+                        ? `Texte aller ${selectedEntries.length} ausgewählten Mails verketten (Strg+M)`
+                        : 'Nur Text kopieren (Strg+M)'}
                       aria-pressed={effectiveCopyMode === 'text'}
-                    >Text</button>
+                    >{selectedEntries.length > 1 ? `Texte (${selectedEntries.length})` : 'Text'}</button>
                     <button
                       onClick={() => setCopyMode('file')}
                       className={effectiveCopyMode === 'file' ? 'active' : ''}
                       disabled={!hasFilePaths}
-                      title={hasFilePaths ? `Datei${emails.length > 1 ? 'en' : ''} kopieren (Strg+M)` : 'Im Browser-Modus oder ohne lokalen Pfad nicht verfügbar'}
+                      title={hasFilePaths
+                        ? `Datei${filePaths.length > 1 ? 'en' : ''} kopieren (Strg+M)`
+                        : 'Im Browser-Modus oder ohne lokalen Pfad nicht verfügbar'}
                       aria-pressed={effectiveCopyMode === 'file'}
-                    >{emails.length > 1 ? `Dateien (${emails.length})` : 'Datei'}</button>
+                    >{filePaths.length > 1 ? `Dateien (${filePaths.length})` : 'Datei'}</button>
                   </div>
 
                   <div className="toolbar-actions">
@@ -459,8 +533,9 @@ function App() {
 
                 {emails.length > 1 && (
                   <div className="multi-info" role="status">
-                    Vorschau: Mail {activeIndex + 1} von {emails.length}. Im
-                    „Datei{emails.length > 1 ? 'en' : ''}"-Modus werden alle {emails.length} Dateien angehängt.
+                    {selectedIndices.size > 0
+                      ? `${selectedIndices.size} von ${emails.length} ausgewählt. "Kopieren" verkettet die Texte und legt die Dateien in die Zwischenablage.`
+                      : `Keine Mail ausgewählt. Klick auf einen Listeneintrag kopiert nur diese Mail.`}
                   </div>
                 )}
 

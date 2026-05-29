@@ -10,6 +10,7 @@ import {
   isSupportedFile,
 } from './utils/EmailProcessor';
 import type { EmailData } from './utils/EmailProcessor';
+import { detectQuote } from './utils/quotedReply';
 import { useSettings } from './hooks/useSettings';
 import { checkForUpdates, type UpdateInfo } from './utils/updateCheck';
 import { Titlebar } from './components/Titlebar';
@@ -50,6 +51,7 @@ function App() {
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [copyModeOverride, setCopyMode] = useState<CopyMode | null>(null);
+  const [stripQuotesOverride, setStripQuotesOverride] = useState<boolean | null>(null);
   const [showPulse, setShowPulse] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -93,6 +95,9 @@ function App() {
     });
   }, [settings.autoCheckUpdates, settings.updateUrl]);
 
+  // "Mail-Verlauf abschneiden" - Per-Mail-Override schlaegt Settings-Default.
+  const stripQuotes = stripQuotesOverride ?? settings.stripQuotedHistory;
+
   // Forward-Format: bei mehreren ausgewählten Mails verkettete Version,
   // sonst die aktive Einzelmail.
   const formattedContent = useMemo(() => {
@@ -101,12 +106,19 @@ function App() {
       templateText: settings.forwardTemplateText,
       templateHtml: settings.forwardTemplateHtml,
       allowExternalImages: settings.allowExternalImages,
+      stripQuotedHistory: stripQuotes,
     };
     if (selectedEntries.length > 1) {
       return formatCombinedEmails(selectedEntries.map((e) => e.data), opts);
     }
     return formatForwardedEmail(emailData, opts);
-  }, [emailData, selectedEntries, settings.forwardTemplateText, settings.forwardTemplateHtml, settings.allowExternalImages]);
+  }, [emailData, selectedEntries, settings.forwardTemplateText, settings.forwardTemplateHtml, settings.allowExternalImages, stripQuotes]);
+
+  // Erkennen, ob die aktuelle Mail ueberhaupt ein Zitat enthaelt.
+  const quoteInfo = useMemo(() => {
+    if (!emailData) return { hasQuote: false, cutTextChars: 0 };
+    return detectQuote(emailData.body, emailData.bodyHtml);
+  }, [emailData]);
 
   useEffect(() => { if (formattedContent) copyBtnRef.current?.focus(); }, [formattedContent]);
 
@@ -308,6 +320,7 @@ function App() {
         templateText: settings.forwardTemplateText,
         templateHtml: settings.forwardTemplateHtml,
         allowExternalImages: settings.allowExternalImages,
+        stripQuotedHistory: stripQuotes,
       });
       if (isElectron) {
         const res = await window.electronAPI!.copyToClipboard({
@@ -500,6 +513,20 @@ function App() {
                       aria-pressed={effectiveCopyMode === 'file'}
                     >{filePaths.length > 1 ? `Dateien (${filePaths.length})` : 'Datei'}</button>
                   </div>
+
+                  {quoteInfo.hasQuote && (
+                    <button
+                      type="button"
+                      className={`btn-quote-toggle${stripQuotes ? ' active' : ''}`}
+                      onClick={() => setStripQuotesOverride(!stripQuotes)}
+                      title={stripQuotes
+                        ? 'Aktuell nur der oberste Mail-Text wird kopiert. Klick = wieder ganze Mail.'
+                        : 'Aktuell wird die ganze Mail inkl. AW/FW/WG kopiert. Klick = nur oberster Mail-Text.'}
+                      aria-pressed={stripQuotes}
+                    >
+                      {stripQuotes ? 'Nur aktuell' : 'Ganze Mail'}
+                    </button>
+                  )}
 
                   <div className="toolbar-actions">
                     <button

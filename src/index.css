@@ -728,6 +728,36 @@ h1 {
   text-align: center;
 }
 
+/* ===== Quote-Toggle (AW/FW/WG abschneiden) ===== */
+.btn-quote-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 36px;
+  padding: 0 var(--space-3);
+  background: rgba(255, 213, 79, 0.08);
+  border: 1px solid rgba(255, 213, 79, 0.35);
+  color: rgba(255, 213, 79, 0.95);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out),
+              border-color var(--motion-fast) var(--ease-out),
+              color var(--motion-fast) var(--ease-out);
+  white-space: nowrap;
+}
+.btn-quote-toggle:hover {
+  background: rgba(255, 213, 79, 0.18);
+  border-color: rgba(255, 213, 79, 0.6);
+}
+.btn-quote-toggle.active {
+  background: rgba(255, 213, 79, 0.22);
+  border-color: rgba(255, 213, 79, 0.7);
+  color: white;
+}
+
 /* ===== Mail-Liste (Win+V-Stil bei Multi-Drop) ===== */
 .mail-list {
   display: flex;

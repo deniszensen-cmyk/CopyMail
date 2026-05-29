@@ -18,6 +18,9 @@
   "scripts": {
     "dev": "vite --port 5180 --logLevel warn --clearScreen false",
     "build": "tsc -b && vite build --logLevel warn",
+    "build:web": "tsc -b && vite build --logLevel warn --mode web",
+    "build:singlehtml": "tsc -b && vite build --logLevel warn --mode singlefile",
+    "package:web": "powershell -ExecutionPolicy Bypass -File scripts/package-web.ps1",
     "build:helper": "powershell -ExecutionPolicy Bypass -File native/ClipboardHelper/build.ps1",
     "lint": "eslint .",
     "test": "vitest run",
@@ -115,6 +118,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10",
+    "vite-plugin-singlefile": "^2.1.0",
     "vitest": "^3.0.5",
     "@vitest/coverage-v8": "^3.0.5",
     "wait-on": "^8.0.3"

@@ -72,6 +72,16 @@ export function SettingsDrawer({ open, settings, onChange, onClose, reduceMotion
                       onChange={(e) => onChange({ maxFileSizeMb: clampInt(e.target.value, 1, 2048, 100) })}
                     />
                   </Field>
+                  <Field
+                    label="Mail-Verläufe abschneiden"
+                    hint="Wenn an: AW/FW/WG-Zitate werden vor dem Kopieren entfernt – nur der oberste, aktuelle Mail-Text bleibt übrig."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={settings.stripQuotedHistory}
+                      onChange={(e) => onChange({ stripQuotedHistory: e.target.checked })}
+                    />
+                  </Field>
                 </>
               )}
 

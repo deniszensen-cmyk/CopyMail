@@ -1,0 +1,59 @@
+CopyMail - Web-Variante (ohne EXE)
+===================================
+
+Diese Variante laeuft komplett im Browser. Keine Installation, keine .exe,
+keine Admin-Rechte - ideal wenn die Unternehmens-Policy EXE-Dateien blockt.
+
+Was funktioniert
+----------------
+- Mail-Vorschau fuer .msg und .eml Dateien per Drag & Drop
+- Mehrere Mails gleichzeitig in einer Liste
+- Klick auf einzelne Mail = Text in die Zwischenablage
+- Sammelkopie aller ausgewaehlten Mails als ein verketteter Text
+- Suche im Mail-Body (Strg+F)
+- Einstellungen (Sprache, Theme, externe Bilder ja/nein)
+- Sicherheits-Sanitizer fuer eingehendes Mail-HTML (kein Script,
+  kein Tracking-Pixel)
+
+Was eingeschraenkt ist
+----------------------
+- Datei-Anhang an Mails im Datei-Modus: Browser koennen aus Sicherheitsgruenden
+  keine Dateien per Strg+V als Anhang an eine andere Mail uebergeben.
+  Workaround: Mail oeffnen, Originaldatei einfach aus dem Datei-Explorer
+  in die Mail ziehen.
+- Always-on-Top, Tray-Icon, globaler Hotkey: gibts nur in der EXE-Variante.
+- Auto-Update-Banner: gibts nur in der EXE-Variante.
+
+Variante A: Doppelklick auf eine HTML-Datei
+-------------------------------------------
+Es gibt zwei Dateien zum Auswaehlen:
+
+  CopyMail.html     - alles in einer einzigen Datei. Doppelklick - fertig.
+  CopyMail-Ordner/  - aufgesplittet in mehrere Dateien (kleiner Initial-Load).
+                      Doppelklick auf index.html starten.
+
+Beide oeffnen sich im Standard-Browser (Edge, Chrome, Firefox).
+
+Variante B: auf einem internen Webserver hosten
+-----------------------------------------------
+- Den Ordner "CopyMail-Ordner" auf einen internen Webserver legen
+  (SharePoint, IIS, Apache, Nginx, GitHub Pages).
+- Dort die URL aufrufen. Funktioniert in allen Browsern.
+
+Vorteil: Updates kommen ueber ein Re-Deploy automatisch bei allen Nutzern an.
+Vorteil: Clipboard-API laeuft auf HTTPS-Hosts ohne Einschraenkungen.
+
+Tipps
+-----
+- Falls "Kopieren" nicht zu funktionieren scheint, einmal auf eine
+  beliebige Stelle der Seite klicken - die Browser-Clipboard-API verlangt
+  in manchen Browsern eine User-Geste vor dem ersten Schreiben.
+- In Firefox bei file:// (Variante A) kann die Clipboard-API restriktiv sein.
+  Empfehlung: Edge oder Chrome, oder Variante B per HTTPS.
+
+Datenschutz
+-----------
+- Keine Cloud, keine Telemetrie, keine externen Aufrufe.
+- Alles laeuft lokal im Browser, Mails verlassen den Rechner nicht.
+- Bei Verteilung per Webserver: derselbe Browser-Sandbox-Schutz wie bei
+  jeder anderen internen Webanwendung.

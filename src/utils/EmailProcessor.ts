@@ -2,6 +2,7 @@ import PostalMime from 'postal-mime';
 import DOMPurify from 'dompurify';
 import { parseMsgBuffer } from './MsgParser';
 import { renderHtml as tplHtml, renderText as tplText } from './forwardTemplate';
+import { stripQuotedReplyText, stripQuotedReplyHtml } from './quotedReply';
 
 export interface EmailAttachment {
   name: string;
@@ -206,6 +207,8 @@ export interface FormatOptions {
   templateText?: string | null;
   templateHtml?: string | null;
   allowExternalImages?: boolean;
+  /** Wenn true: zitierte Mail-Verlauefe (AW/FW/WG) werden abgeschnitten. */
+  stripQuotedHistory?: boolean;
 }
 
 export function formatForwardedEmail(
@@ -213,11 +216,16 @@ export function formatForwardedEmail(
   opts: FormatOptions = {},
 ): { text: string; html: string } {
   const dateStr = formatDate(data.date);
-  const bodyText = data.body.trim();
+  let bodyText = data.body.trim();
+  let sourceHtml = data.bodyHtml;
+  if (opts.stripQuotedHistory) {
+    bodyText = stripQuotedReplyText(bodyText);
+    if (sourceHtml) sourceHtml = stripQuotedReplyHtml(sourceHtml);
+  }
 
   let bodyHtml: string;
-  if (data.bodyHtml) {
-    const inner = extractBody(data.bodyHtml);
+  if (sourceHtml) {
+    const inner = extractBody(sourceHtml);
     bodyHtml = `<div style="font-family:Calibri,sans-serif;font-size:12pt;">${sanitizeMailHtml(inner, !!opts.allowExternalImages)}</div>`;
   } else {
     const paragraphs = bodyText.split(/\r?\n\s*\r?\n/);

@@ -19,6 +19,11 @@ export interface Settings {
   /** Eigene Forward-Templates – null = built-in benutzen. */
   forwardTemplateText: string | null;
   forwardTemplateHtml: string | null;
+  /**
+   * Wenn true: zitierte Mail-Verlaeufe (AW/FW/WG) werden vor dem Kopieren
+   * abgeschnitten - es bleibt nur der obere, "aktuelle" Mail-Text.
+   */
+  stripQuotedHistory: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,6 +37,7 @@ export const DEFAULT_SETTINGS: Settings = {
   updateUrl: 'https://api.github.com/repos/deniszensen-cmyk/CopyMail/releases/latest',
   forwardTemplateText: null,
   forwardTemplateHtml: null,
+  stripQuotedHistory: false,
 };
 
 const LS_KEY = 'copymail.settings.v1';

@@ -90,7 +90,6 @@ async function processEmlFile(buffer: ArrayBuffer): Promise<EmailData> {
         dataUrl,
         inline,
       });
-      // CID auf data:-URL im Body ersetzen
       if (bodyHtml && cid && dataUrl) {
         const re = new RegExp('cid:' + escapeRegExp(cid), 'gi');
         bodyHtml = bodyHtml.replace(re, dataUrl);
@@ -125,6 +124,8 @@ function escapeRegExp(s: string): string {
 const SANITIZE_BASE = {
   FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'base'],
   FORBID_ATTR: ['srcset', 'formaction'],
+  ADD_TAGS: ['style'],
+  ADD_ATTR: ['bordercolor', 'cellspacing', 'cellpadding'],
   ALLOW_DATA_ATTR: false,
   ALLOW_UNKNOWN_PROTOCOLS: false,
   RETURN_TRUSTED_TYPE: false,
@@ -135,16 +136,13 @@ const URI_WITH_REMOTE = /^(?:(?:https?|mailto|tel|cid|data:image\/(?:png|gif|jpe
 
 let hooksInstalled = false;
 function installSanitizerHooks(allowExternalImages: boolean): void {
-  // Hooks werden global installiert; bei Bedarf gegen den Flag gegated.
   if (hooksInstalled) {
     DOMPurify.removeAllHooks();
     hooksInstalled = false;
   }
 
-  // 1) Outlook-/VML-/MathML-Reste entfernen.
   DOMPurify.addHook('uponSanitizeElement', (node, data) => {
     const name = (data.tagName || '').toLowerCase();
-    // o:p (Outlook), v:* (VML), m:* (MathML aus Outlook)
     if (
       name.startsWith('o:') ||
       name.startsWith('v:') ||
@@ -152,7 +150,6 @@ function installSanitizerHooks(allowExternalImages: boolean): void {
       name.startsWith('w:') ||
       name === 'xml'
     ) {
-      // Entferne den Tag, behalte aber den Text-Inhalt
       const parent = node.parentNode;
       if (parent && node.textContent) {
         const text = node.ownerDocument?.createTextNode(node.textContent);
@@ -164,16 +161,12 @@ function installSanitizerHooks(allowExternalImages: boolean): void {
     }
   });
 
-  // 2) Gefährliche style-Inhalte filtern: url(http…) blockieren, wenn keine
-  //    externen Bilder erlaubt sind.
   DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
     if (data.attrName !== 'style' || !data.attrValue) return;
     const v = data.attrValue;
     if (!allowExternalImages && /url\s*\(\s*['"]?\s*https?:/i.test(v)) {
-      // url(http://…) / url(https://…) entfernen
       data.attrValue = v.replace(/url\s*\(\s*['"]?\s*https?:[^)'"]+['"]?\s*\)/gi, 'none');
     }
-    // Immer: javascript:- und expression(…) blockieren
     if (/javascript\s*:/i.test(data.attrValue) || /expression\s*\(/i.test(data.attrValue)) {
       data.attrValue = '';
     }
@@ -187,13 +180,15 @@ export function sanitizeMailHtml(input: string, allowExternalImages = false): st
   const config = {
     ...SANITIZE_BASE,
     ALLOWED_URI_REGEXP: allowExternalImages ? URI_WITH_REMOTE : URI_LOCAL,
+    // FORCE_BODY: damit <style>-Bloecke (Signatur-CSS + unser Reset) im Body
+    // erhalten bleiben; ohne diese Option verschiebt der HTML-Parser sie in
+    // den <head>, den DOMPurify dann verwirft.
+    FORCE_BODY: true,
   };
   return String(DOMPurify.sanitize(input, config));
 }
 
 function extractBody(html: string): string {
-  // <style>-Bloecke aus <head>/Body sammeln, damit Outlook/Word/eM Client
-  // beim Einfuegen weiterhin die CSS-Klassen der Signatur kennen.
   const styles: string[] = [];
   const styleRe = /<style\b[^>]*>[\s\S]*?<\/style>/gi;
   let m: RegExpExecArray | null;
@@ -216,25 +211,56 @@ function extractBody(html: string): string {
     }
   }
 
-  // Tabellen ohne expliziten border-Wert bekommen border="0" - sonst rendert
-  // Outlook/Word/eM Client beim Einfuegen schwarze Default-Rahmen um jede
-  // Tabellen-Zelle (typisches Symptom bei Signaturen).
-  bodyInner = bodyInner.replace(/<table\b([^>]*)>/gi, (_full, attrs: string) => {
-    if (/\bborder\s*=/.test(attrs)) return `<table${attrs}>`;
-    return `<table border="0"${attrs}>`;
-  });
+  bodyInner = neutralizeTableBorders(bodyInner);
 
-  // Zusatz-Reset fuer Tabellen ohne CSS-Direktiven.
-  const defaultReset = '<style>table{border-collapse:collapse;}</style>';
+  const defaultReset =
+    '<style>' +
+    'table,table tr,table td,table th{' +
+    'border:none !important;' +
+    'border-collapse:collapse !important;' +
+    'mso-table-lspace:0pt;mso-table-rspace:0pt;' +
+    '}' +
+    '</style>';
 
   return defaultReset + styles.join('') + bodyInner;
+}
+
+function neutralizeTableBorders(html: string): string {
+  html = html.replace(/<table\b([^>]*)>/gi, (_full, attrs: string) => {
+    let next = attrs;
+    if (!/\bborder\s*=/i.test(next)) next = ` border="0"` + next;
+    next = mergeStyleNoBorder(next, 'border:none;border-collapse:collapse;');
+    return `<table${next}>`;
+  });
+
+  for (const tag of ['tr', 'td', 'th']) {
+    const re = new RegExp(`<${tag}\\b([^>]*)>`, 'gi');
+    html = html.replace(re, (_f, attrs: string) => {
+      const next = mergeStyleNoBorder(attrs, 'border:none;');
+      return `<${tag}${next}>`;
+    });
+  }
+
+  return html;
+}
+
+function mergeStyleNoBorder(attrs: string, css: string): string {
+  const styleRe = /\bstyle\s*=\s*(["'])([\s\S]*?)\1/i;
+  const m = styleRe.exec(attrs);
+  if (!m) {
+    return ` style="${css}"${attrs}`;
+  }
+  const quote = m[1] ?? '"';
+  const existing = m[2] ?? '';
+  if (/\bborder\s*:/.test(existing)) return attrs;
+  const merged = `style=${quote}${css}${existing}${quote}`;
+  return attrs.replace(styleRe, merged);
 }
 
 export interface FormatOptions {
   templateText?: string | null;
   templateHtml?: string | null;
   allowExternalImages?: boolean;
-  /** Wenn true: zitierte Mail-Verlauefe (AW/FW/WG) werden abgeschnitten. */
   stripQuotedHistory?: boolean;
 }
 
@@ -286,10 +312,6 @@ export function escHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/**
- * Verkettet mehrere Mails zu einem einzigen Forward-Block, getrennt durch eine
- * Trennlinie. Reihenfolge = Eingabe-Reihenfolge.
- */
 export function formatCombinedEmails(
   emails: EmailData[],
   opts: FormatOptions = {},
@@ -308,7 +330,14 @@ export function formatCombinedEmails(
   };
 }
 
-/** Kurzes Text-Snippet fuer Listenansicht. */
+export function snippet(data: EmailData, maxLen = 160): string {
+  const raw = (data.body || '').replace(/\s+/g, ' ').trim();
+  if (raw.length <= maxLen) return raw;
+  return raw.slice(0, maxLen).trimEnd() + '…';
+}
+  };
+}
+
 export function snippet(data: EmailData, maxLen = 160): string {
   const raw = (data.body || '').replace(/\s+/g, ' ').trim();
   if (raw.length <= maxLen) return raw;

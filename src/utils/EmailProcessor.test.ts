@@ -109,3 +109,59 @@ describe('formatForwardedEmail', () => {
     expect(out.html).toContain('&lt;script&gt;');
   });
 });
+
+describe('Tabellen-Rahmen-Neutralisierung (Signatur-Fix)', () => {
+  const base: EmailData = {
+    from: 'A <a@b.de>',
+    to: '',
+    date: '2026-06-01T08:00:00.000Z',
+    subject: 'Sig-Test',
+    body: 'irgendwas',
+  };
+
+  it('setzt border="0" auf Outlook-Signatur-Tabelle ohne border-Attribut', () => {
+    const out = formatForwardedEmail({
+      ...base,
+      bodyHtml: '<html><body><table class="MsoNormalTable"><tr><td>Logo</td></tr></table></body></html>',
+    });
+    expect(out.html).toMatch(/<table\b[^>]*border="0"/);
+  });
+
+  it('ergaenzt Inline-style border:none auf table/tr/td', () => {
+    const out = formatForwardedEmail({
+      ...base,
+      bodyHtml: '<table><tr><td>x</td></tr></table>',
+    });
+    // Inline-Style mit border:none erscheint mindestens auf der table und der Zelle
+    expect(out.html).toMatch(/<table\b[^>]*style\s*=\s*["'][^"']*border\s*:\s*none/i);
+    expect(out.html).toMatch(/<td\b[^>]*style\s*=\s*["'][^"']*border\s*:\s*none/i);
+  });
+
+  it('respektiert explizit gesetzte Rahmen (Sender will Rahmen)', () => {
+    const out = formatForwardedEmail({
+      ...base,
+      bodyHtml: '<table><tr><td style="border:1px solid #abc">Box</td></tr></table>',
+    });
+    // unsere border:none darf hier NICHT die explizite Border ueberschreiben
+    expect(out.html).toContain('border:1px solid #abc');
+  });
+
+  it('behaelt <style>-Bloecke aus dem head (DOMPurify-Allow)', () => {
+    const out = formatForwardedEmail({
+      ...base,
+      bodyHtml:
+        '<html><head><style>.MsoNormalTable{font-family:Calibri;}</style></head>' +
+        '<body><table class="MsoNormalTable"><tr><td>Sig</td></tr></table></body></html>',
+    });
+    expect(out.html).toContain('MsoNormalTable{font-family:Calibri');
+  });
+
+  it('schreibt den !important-Reset in den Output', () => {
+    const out = formatForwardedEmail({
+      ...base,
+      bodyHtml: '<table><tr><td>x</td></tr></table>',
+    });
+    expect(out.html).toContain('border:none !important');
+    expect(out.html).toContain('border-collapse:collapse !important');
+  });
+});

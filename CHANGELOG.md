@@ -3,6 +3,36 @@
 Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/)
 und [Semver](https://semver.org/lang/de/).
 
+## [1.3.6] – 2026-06-01
+
+### Behoben
+
+- **Schwarze Tabellen-Rahmen in Outlook-Signaturen beim Paste in Word /
+  Outlook / eM Client** — jetzt finaler Fix:
+  - **MSO-Tabellen-Klassen werden entfernt** (`MsoNormalTable`,
+    `MsoTableGrid`, …). Diese triggern in der Word-HTML→RTF-Pipeline die
+    Word-Default-1pt-Rahmen, die unsere Inline-`border:none`-Styles
+    überstimmt haben.
+  - **HTML4-Attribute zusätzlich gesetzt** für Programme, die `style="…"`
+    beim Paste strippen: `frame="void"`, `rules="none"`,
+    `bordercolor="white"`, `cellspacing="0"` — alte Attribute, die
+    praktisch alle Sanitizer als harmlos durchlassen.
+- **HTML-Entities in Plain-Text-Body** werden jetzt decodiert. Mail-
+  Clients generieren den text/plain-Teil manchmal aus dem HTML-Body
+  und lassen einzelne `&gt;` / `&amp;` un-decoded zurück — diese tauchten
+  beim Paste in Plain-Text-Editoren (Bitrix, Slack) als Roh-Zeichen auf.
+
+### Bekannte Einschränkung
+
+- **Bitrix24-Editor und andere extrem strikte WYSIWYG-Sanitizer** entfernen
+  beim Paste auch deprecated HTML4-Attribute (`frame`, `rules`,
+  `bordercolor`) und Inline-Styles, sodass die nackte Tabellen-Struktur
+  übrig bleibt. Bitrix' eigenes Editor-CSS rendert dann Default-Rahmen
+  auf jeder `<td>`. Workaround: **Strg+Shift+V** ("Als Text einfügen")
+  oder Inhalt vorher in Word zwischenpasten und von dort kopieren.
+
+---
+
 ## [1.3.5] – 2026-06-01
 
 ### Behoben

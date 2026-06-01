@@ -228,7 +228,16 @@ function extractBody(html: string): string {
 function neutralizeTableBorders(html: string): string {
   html = html.replace(/<table\b([^>]*)>/gi, (_full, attrs: string) => {
     let next = attrs;
+    // HTML-Attribute fuer Programme, die style="..." beim Paste strippen
+    // (Bitrix, Confluence, viele Wikis). Diese alten HTML4-Attribute werden
+    // von praktisch allen Sanitizern als harmlos durchgelassen und vom
+    // Browser respektiert.
     if (!/\bborder\s*=/i.test(next)) next = ` border="0"` + next;
+    if (!/\bframe\s*=/i.test(next)) next = ` frame="void"` + next;
+    if (!/\brules\s*=/i.test(next)) next = ` rules="none"` + next;
+    if (!/\bbordercolor\s*=/i.test(next)) next = ` bordercolor="white"` + next;
+    if (!/\bcellspacing\s*=/i.test(next)) next = ` cellspacing="0"` + next;
+    next = stripMsoTableClass(next);
     next = mergeStyleNoBorder(next, 'border:none;border-collapse:collapse;');
     return `<table${next}>`;
   });
@@ -236,12 +245,42 @@ function neutralizeTableBorders(html: string): string {
   for (const tag of ['tr', 'td', 'th']) {
     const re = new RegExp(`<${tag}\\b([^>]*)>`, 'gi');
     html = html.replace(re, (_f, attrs: string) => {
-      const next = mergeStyleNoBorder(attrs, 'border:none;');
+      let next = attrs;
+      if (!/\bbordercolor\s*=/i.test(next)) next = ` bordercolor="white"` + next;
+      next = stripMsoTableClass(next);
+      next = mergeStyleNoBorder(next, 'border:none;');
       return `<${tag}${next}>`;
     });
   }
 
   return html;
+}
+
+/**
+ * Entfernt Word-spezifische MSO-Tabellen-Klassen. Diese Klassen
+ * (MsoNormalTable, MsoTableGrid, ...) triggern in Outlook/Word/eM Client
+ * beim Paste die Word-HTML->RTF-Pipeline, die ihre eigenen 1pt-Default-
+ * Rahmen rendert - und dabei unsere inline border:none-Styles ignoriert,
+ * weil sie aus der Class-Definition kommen, nicht aus dem HTML.
+ *
+ * Andere CSS-Klassen (z.B. fuer Schriftarten) bleiben erhalten.
+ */
+function stripMsoTableClass(attrs: string): string {
+  const classRe = /\bclass\s*=\s*(["'])([\s\S]*?)\1/i;
+  const m = classRe.exec(attrs);
+  if (!m) return attrs;
+  const quote = m[1] ?? '"';
+  const existing = m[2] ?? '';
+  const cleaned = existing
+    .split(/\s+/)
+    .filter((c) => !/^Mso(?:NormalTable|TableGrid|TableLightShading|Table[A-Za-z]*)$/i.test(c))
+    .join(' ');
+  if (cleaned === existing) return attrs;
+  if (cleaned === '') {
+    // ganzes class-Attribut weg
+    return attrs.replace(classRe, '').replace(/\s{2,}/g, ' ');
+  }
+  return attrs.replace(classRe, `class=${quote}${cleaned}${quote}`);
 }
 
 function mergeStyleNoBorder(attrs: string, css: string): string {
@@ -269,7 +308,7 @@ export function formatForwardedEmail(
   opts: FormatOptions = {},
 ): { text: string; html: string } {
   const dateStr = formatDate(data.date);
-  let bodyText = data.body.trim();
+  let bodyText = decodeBasicEntities(data.body.trim());
   let sourceHtml = data.bodyHtml;
   if (opts.stripQuotedHistory) {
     bodyText = stripQuotedReplyText(bodyText);
@@ -301,6 +340,26 @@ function formatDate(value: string): string {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
+}
+
+/**
+ * Decodet die wichtigsten HTML-Entities im Plain-Text-Body. Mail-Clients
+ * generieren den text/plain-Teil manchmal aus dem HTML-Body und lassen
+ * dabei einzelne Entities (&gt;, &amp;) un-decoded zurueck, die dann beim
+ * Paste in Plain-Text-Editoren (Bitrix, Slack) als Roh-Zeichen auftauchen.
+ *
+ * Reihenfolge: &amp; ZULETZT, sonst werden bereits decodete Entities
+ * (z.B. &amp;gt;) doppelt aufgeloest.
+ */
+function decodeBasicEntities(s: string): string {
+  if (!s || !s.includes('&')) return s;
+  return s
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&');
 }
 
 export function escHtml(s: string): string {

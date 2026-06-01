@@ -3,6 +3,38 @@
 Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/)
 und [Semver](https://semver.org/lang/de/).
 
+## [1.3.7] – 2026-06-01
+
+### Neu
+
+- **„Ohne Signatur"-Toggle** in der Toolbar (neben „Nur aktuelle Mail"):
+  schneidet die Signatur ab, behält Inhalt + Grußformel + Absender-Name.
+  - Erkennt deutsche und englische Standard-Grußformeln (Mit freundlichen
+    Grüßen, Beste Grüße, Viele Grüße, MfG, VG, LG, Liebe Grüße, Schöne
+    Grüße, Freundliche Grüße, Mit kollegialen Grüßen, Kind regards, Best
+    regards, Sincerely, Yours sincerely/truly/faithfully, Cheers, Regards).
+  - Behält nur die Grußformel selbst plus die nächste nicht-Disclaimer-
+    Zeile (= meistens der Name); Telefon-/Mobil-/Adress-/HRB-Zeilen werden
+    übersprungen.
+  - **Fallback bei fehlender Grußformel**: hängt automatisch
+    `Mit freundlichen Grüßen\n[Name aus From-Header]` an. Wenn auch im
+    From kein Klartext-Name steht (z.B. nur `max.mustermann@firma.de`),
+    wird daraus „Max Mustermann" rekonstruiert.
+  - **HTML-Body wird komplett verworfen** — keine Tabellen, keine
+    Word-Styles, keine schwarzen Rahmen mehr in strikten Editoren wie
+    Bitrix24 oder Confluence.
+- **Setting „Ohne Signatur kopieren"** als persistenter Default in den
+  Einstellungen unter „Allgemein". Toolbar-Toggle überschreibt pro Mail.
+
+### Notiz zu 1.3.6
+
+- Das in 1.3.6 dokumentierte Bitrix-Problem (Sanitizer entfernt deprecated
+  HTML4-Attribute) ist mit dem Signatur-Toggle effektiv gelöst — User
+  aktiviert „Ohne Signatur" für Bitrix-Paste, und das Tabellen-Problem
+  taucht gar nicht erst auf.
+
+---
+
 ## [1.3.6] – 2026-06-01
 
 ### Behoben

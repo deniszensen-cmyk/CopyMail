@@ -110,6 +110,82 @@ describe('formatForwardedEmail', () => {
   });
 });
 
+describe('stripSignature (Strikt-Modus für Bitrix/Confluence)', () => {
+  const base: EmailData = {
+    from: 'Christoph Drube <christoph@example.de>',
+    to: '',
+    date: '2026-06-01T08:00:00.000Z',
+    subject: 'Test',
+    body: '',
+  };
+
+  it('schneidet Signatur ab "Mit freundlichen Grüßen", behaelt Name', () => {
+    const body = [
+      'Sehr geehrte Damen und Herren,',
+      '',
+      'anbei die gewünschte Auskunft.',
+      '',
+      'Mit freundlichen Grüßen',
+      '',
+      'Christoph Drube',
+      'Chief of Staff',
+      'office people Personalmanagement GmbH',
+      'Tel: +49 251 ...',
+    ].join('\n');
+    const out = formatForwardedEmail({ ...base, body }, { stripSignature: true });
+    expect(out.text).toContain('anbei die gewünschte Auskunft.');
+    expect(out.text).toContain('Mit freundlichen Grüßen');
+    expect(out.text).toContain('Christoph Drube');
+    expect(out.text).not.toContain('Tel:');
+    expect(out.text).not.toContain('Chief of Staff');
+  });
+
+  it('haengt MfG + Name selbst an wenn keine Grußformel im Body', () => {
+    const body = 'Kurze Antwort ohne Schluss.';
+    const out = formatForwardedEmail(
+      { ...base, body, from: 'Max Mustermann <max@firma.de>' },
+      { stripSignature: true },
+    );
+    expect(out.text).toContain('Kurze Antwort ohne Schluss.');
+    expect(out.text).toContain('Mit freundlichen Grüßen');
+    expect(out.text).toContain('Max Mustermann');
+  });
+
+  it('verwirft HTML-Body komplett (keine Tabellen im Output)', () => {
+    const out = formatForwardedEmail(
+      {
+        ...base,
+        body: 'Inhalt.\n\nMit freundlichen Grüßen\nChristoph',
+        bodyHtml: '<html><body><p>Inhalt.</p><table><tr><td>X</td></tr></table></body></html>',
+      },
+      { stripSignature: true },
+    );
+    expect(out.html).not.toMatch(/<table\b/);
+    expect(out.html).toContain('Inhalt.');
+  });
+
+  it('faellt auf Local-Part der Mail-Adresse zurueck wenn kein Name im From', () => {
+    const out = formatForwardedEmail(
+      { ...base, from: 'max.mustermann@firma.de', body: '' },
+      { stripSignature: true },
+    );
+    expect(out.text).toContain('Max Mustermann');
+  });
+
+  it('erkennt "Beste Grüße" / "Kind regards" / "MfG"', () => {
+    const cases = [
+      'Inhalt.\n\nBeste Grüße\nA. Person',
+      'Content.\n\nKind regards\nP. Erson',
+      'Kurz.\n\nMfG\nName',
+    ];
+    for (const body of cases) {
+      const out = formatForwardedEmail({ ...base, body }, { stripSignature: true });
+      const trimmed = out.text;
+      expect(trimmed.toLowerCase()).toMatch(/grüße|regards|mfg/);
+    }
+  });
+});
+
 describe('Tabellen-Rahmen-Neutralisierung (Signatur-Fix)', () => {
   const base: EmailData = {
     from: 'A <a@b.de>',

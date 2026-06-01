@@ -24,6 +24,13 @@ export interface Settings {
    * abgeschnitten - es bleibt nur der obere, "aktuelle" Mail-Text.
    */
   stripQuotedHistory: boolean;
+  /**
+   * Wenn true: HTML-Body und Signatur-Tabellen werden verworfen, statt-
+   * dessen wird der Plain-Text-Inhalt + Grußformel + Absender-Name benutzt.
+   * Zielsetzung: sauberes Paste in Bitrix24, Confluence und anderen
+   * strikten WYSIWYG-Editoren ohne Tabellen-Rahmen-Probleme.
+   */
+  stripSignature: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,6 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
   forwardTemplateText: null,
   forwardTemplateHtml: null,
   stripQuotedHistory: false,
+  stripSignature: false,
 };
 
 const LS_KEY = 'copymail.settings.v1';

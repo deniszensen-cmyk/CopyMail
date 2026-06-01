@@ -82,6 +82,16 @@ export function SettingsDrawer({ open, settings, onChange, onClose, reduceMotion
                       onChange={(e) => onChange({ stripQuotedHistory: e.target.checked })}
                     />
                   </Field>
+                  <Field
+                    label="Ohne Signatur kopieren"
+                    hint="Wenn an: HTML-Body und Signatur werden verworfen, stattdessen wird Plain-Text + Grußformel + Absender-Name kopiert. Sinnvoll für strikte Editoren wie Bitrix24 oder Confluence, die Tabellen-Rahmen falsch rendern."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={settings.stripSignature}
+                      onChange={(e) => onChange({ stripSignature: e.target.checked })}
+                    />
+                  </Field>
                 </>
               )}
 

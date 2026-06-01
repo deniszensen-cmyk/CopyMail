@@ -301,6 +301,13 @@ export interface FormatOptions {
   templateHtml?: string | null;
   allowExternalImages?: boolean;
   stripQuotedHistory?: boolean;
+  /**
+   * Wenn true: HTML-Body wird verworfen, Signatur abgeschnitten und nur der
+   * Mail-Inhalt + Grußformel + Absender-Name behalten. Zielsetzung: keine
+   * Tabellen, keine Word-/Outlook-Styles - sauberes Paste in Bitrix24,
+   * Confluence und andere strikte Editoren.
+   */
+  stripSignature?: boolean;
 }
 
 export function formatForwardedEmail(
@@ -313,6 +320,12 @@ export function formatForwardedEmail(
   if (opts.stripQuotedHistory) {
     bodyText = stripQuotedReplyText(bodyText);
     if (sourceHtml) sourceHtml = stripQuotedReplyHtml(sourceHtml);
+  }
+  if (opts.stripSignature) {
+    bodyText = stripSignatureText(bodyText, data.from);
+    // HTML verwerfen, damit die Plain-Text-Pipeline genutzt wird
+    // (keine Tabellen, keine Word-Styles, keine Bitrix-Rahmen-Probleme)
+    sourceHtml = undefined;
   }
 
   let bodyHtml: string;
@@ -351,6 +364,80 @@ function formatDate(value: string): string {
  * Reihenfolge: &amp; ZULETZT, sonst werden bereits decodete Entities
  * (z.B. &amp;gt;) doppelt aufgeloest.
  */
+/**
+ * Schneidet die Signatur vom Mail-Inhalt ab und hängt Grußformel + Absender-
+ * Name an, falls keine Grußformel im Body vorhanden ist.
+ *
+ * Wird benutzt um Mails ohne Tabellen-Layout in strikte Editoren (Bitrix24,
+ * Confluence, ...) zu paste, die HTML-Sanitizer aggressiv betreiben.
+ */
+function stripSignatureText(body: string, fromHeader: string): string {
+  const trimmed = body.trim();
+  if (!trimmed) return appendGreeting('', fromHeader);
+
+  // Greeting-Pattern: deutsche + englische Standard-Grußformeln.
+  // Wir matchen am Zeilen-Anfang (\n + optional whitespace/quote-marker).
+  const greetingRe =
+    /(^|\n)[ \t>]*(Mit\s+(?:freundlichen|besten|sch(?:ö|oe)nen|herzlichen|liebevollen)\s+Gr(?:ü|ue)(?:ssen|ßen)|Beste\s+Gr(?:ü|ue)(?:ssen|ßen)|Viele\s+Gr(?:ü|ue)(?:ssen|ßen)|Liebe\s+Gr(?:ü|ue)(?:ssen|ßen)|Sch(?:ö|oe)ne\s+Gr(?:ü|ue)(?:ssen|ßen)|Freundliche\s+Gr(?:ü|ue)(?:ssen|ßen)|Herzliche\s+Gr(?:ü|ue)(?:ssen|ßen)|Mit\s+kollegialen\s+Gr(?:ü|ue)(?:ssen|ßen)|MfG|VG|LG|Gru(?:ß|ss)\b|Gr(?:ü|ue)(?:sse|ße)\b|Kind\s+regards|Best\s+regards|Sincerely(?:\s+yours)?|Yours\s+(?:sincerely|truly|faithfully)|Cheers|Regards|Best\s+wishes)\s*[,.!]*\s*(?=\n|$)/i;
+
+  const m = greetingRe.exec(trimmed);
+  if (!m) {
+    // Keine Grußformel im Body - hängen wir selber an.
+    return appendGreeting(trimmed, fromHeader);
+  }
+
+  const greetingStart = m.index + (m[1] ? m[1].length : 0);
+  const before = trimmed.slice(0, greetingStart).trimEnd();
+  const after = trimmed.slice(greetingStart);
+  const lines = after.split(/\r?\n/);
+  const greeting = (lines[0] ?? '').trim();
+
+  // Suche die erste nicht-leere, nicht-Disclaimer-Zeile nach der Grußformel.
+  let name = '';
+  for (let i = 1; i < Math.min(lines.length, 8); i++) {
+    const candidate = (lines[i] ?? '').trim();
+    if (!candidate) continue;
+    if (looksLikeDisclaimer(candidate)) break;
+    name = candidate;
+    break;
+  }
+
+  if (!name) {
+    name = extractNameFromHeader(fromHeader);
+  }
+
+  return (before ? before + '\n\n' : '') + greeting + '\n' + name;
+}
+
+function appendGreeting(body: string, fromHeader: string): string {
+  const name = extractNameFromHeader(fromHeader);
+  const prefix = body ? body + '\n\n' : '';
+  return prefix + 'Mit freundlichen Grüßen\n' + name;
+}
+
+function extractNameFromHeader(fromHeader: string): string {
+  // "Max Mustermann <max@firma.de>" -> "Max Mustermann"
+  const nameMatch = fromHeader.match(/^\s*([^<@]+?)\s*<.+>\s*$/);
+  if (nameMatch && nameMatch[1]) return nameMatch[1].replace(/^["']|["']$/g, '').trim();
+  // "max@firma.de" -> "max" (Fallback)
+  const at = fromHeader.indexOf('@');
+  if (at > 0) {
+    const local = fromHeader.slice(0, at).replace(/^["']|["']$/g, '');
+    // "max.mustermann" -> "Max Mustermann"
+    return local
+      .split(/[._]/)
+      .filter(Boolean)
+      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+      .join(' ');
+  }
+  return fromHeader.trim();
+}
+
+function looksLikeDisclaimer(line: string): boolean {
+  // Telefon-/Mobil-/Adress-Zeilen sind Signatur-Bestandteile, nicht Name.
+  return /^(Tel(?:efon)?|Mobil|Fax|Mail|E-?Mail|Web|www\.|http|Sitz|Anschrift|Adresse|Gesch(?:ä|ae)ftsf(?:ü|ue)hrer|HRB|USt|Amtsgericht|\[cid:|Tel\.|Mobile|Office|Phone)\b/i.test(line);
+}
+
 function decodeBasicEntities(s: string): string {
   if (!s || !s.includes('&')) return s;
   return s

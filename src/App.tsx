@@ -52,6 +52,7 @@ function App() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [copyModeOverride, setCopyMode] = useState<CopyMode | null>(null);
   const [stripQuotesOverride, setStripQuotesOverride] = useState<boolean | null>(null);
+  const [stripSigOverride, setStripSigOverride] = useState<boolean | null>(null);
   const [showPulse, setShowPulse] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -97,6 +98,7 @@ function App() {
 
   // "Mail-Verlauf abschneiden" - Per-Mail-Override schlaegt Settings-Default.
   const stripQuotes = stripQuotesOverride ?? settings.stripQuotedHistory;
+  const stripSig = stripSigOverride ?? settings.stripSignature;
 
   // Forward-Format: bei mehreren ausgewählten Mails verkettete Version,
   // sonst die aktive Einzelmail.
@@ -107,12 +109,13 @@ function App() {
       templateHtml: settings.forwardTemplateHtml,
       allowExternalImages: settings.allowExternalImages,
       stripQuotedHistory: stripQuotes,
+      stripSignature: stripSig,
     };
     if (selectedEntries.length > 1) {
       return formatCombinedEmails(selectedEntries.map((e) => e.data), opts);
     }
     return formatForwardedEmail(emailData, opts);
-  }, [emailData, selectedEntries, settings.forwardTemplateText, settings.forwardTemplateHtml, settings.allowExternalImages, stripQuotes]);
+  }, [emailData, selectedEntries, settings.forwardTemplateText, settings.forwardTemplateHtml, settings.allowExternalImages, stripQuotes, stripSig]);
 
   // Erkennen, ob die aktuelle Mail ueberhaupt ein Zitat enthaelt.
   const quoteInfo = useMemo(() => {
@@ -321,6 +324,7 @@ function App() {
         templateHtml: settings.forwardTemplateHtml,
         allowExternalImages: settings.allowExternalImages,
         stripQuotedHistory: stripQuotes,
+        stripSignature: stripSig,
       });
       if (isElectron) {
         const res = await window.electronAPI!.copyToClipboard({
@@ -527,6 +531,18 @@ function App() {
                       {stripQuotes ? 'Nur aktuell' : 'Ganze Mail'}
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    className={`btn-quote-toggle${stripSig ? ' active' : ''}`}
+                    onClick={() => setStripSigOverride(!stripSig)}
+                    title={stripSig
+                      ? 'Signatur wird weggelassen, nur Mailinhalt + Grußformel + Absender-Name kopiert. Sinnvoll für Bitrix24, Confluence. Klick = wieder mit Signatur.'
+                      : 'Aktuell mit Signatur. Klick = ohne Signatur (für strikte Editoren wie Bitrix24).'}
+                    aria-pressed={stripSig}
+                  >
+                    {stripSig ? 'Ohne Signatur' : 'Mit Signatur'}
+                  </button>
 
                   <div className="toolbar-actions">
                     <button

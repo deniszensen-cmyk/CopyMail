@@ -87,12 +87,38 @@ jobs:
           }
           Get-ChildItem $stage | ForEach-Object { Write-Host "asset: $($_.Name) ($([math]::Round($_.Length/1MB,1)) MB)" }
 
+      - name: Extract release notes from CHANGELOG.md
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $notesPath = "${{ github.workspace }}\release\RELEASE_NOTES.md"
+          if (-not (Test-Path CHANGELOG.md)) {
+            "Keine CHANGELOG.md gefunden." | Out-File -Encoding utf8 $notesPath
+            exit 0
+          }
+          $content = Get-Content -Raw -Encoding utf8 CHANGELOG.md
+          # Sucht "## [<version>]" bis zur nächsten "## [..." Sektion
+          $pattern = "(?ms)## \[$([regex]::Escape($version))\][^\n]*\n(.*?)(?=\n## \[|\Z)"
+          $m = [regex]::Match($content, $pattern)
+          if ($m.Success) {
+            $notes = $m.Groups[1].Value.Trim()
+            # Horizontal-Linien aus dem CHANGELOG weglassen
+            $notes = $notes -replace "(?m)^---\s*$", ""
+            $notes | Out-File -Encoding utf8 $notesPath
+            Write-Host "Release-Notes fuer v$version extrahiert ($($notes.Length) Zeichen)."
+          } else {
+            "Keine Notes fuer v$version in CHANGELOG.md - siehe Commit-History." | Out-File -Encoding utf8 $notesPath
+            Write-Host "WARN: Kein CHANGELOG-Abschnitt fuer v$version gefunden."
+          }
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: release/*
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
+          body_path: release/RELEASE_NOTES.md
+          # Fallback: wenn der Body leer ist, fuegt GitHub die Auto-Notes an.
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -192,15 +192,42 @@ export function sanitizeMailHtml(input: string, allowExternalImages = false): st
 }
 
 function extractBody(html: string): string {
+  // <style>-Bloecke aus <head>/Body sammeln, damit Outlook/Word/eM Client
+  // beim Einfuegen weiterhin die CSS-Klassen der Signatur kennen.
+  const styles: string[] = [];
+  const styleRe = /<style\b[^>]*>[\s\S]*?<\/style>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = styleRe.exec(html)) !== null) styles.push(m[0]);
+
   const lower = html.toLowerCase();
   const bodyStart = lower.indexOf('<body');
-  if (bodyStart < 0) return html;
-  const bodyOpenEnd = html.indexOf('>', bodyStart);
-  if (bodyOpenEnd < 0) return html;
-  const bodyEnd = lower.lastIndexOf('</body>');
-  return bodyEnd > bodyOpenEnd
-    ? html.slice(bodyOpenEnd + 1, bodyEnd)
-    : html.slice(bodyOpenEnd + 1);
+  let bodyInner: string;
+  if (bodyStart < 0) {
+    bodyInner = html;
+  } else {
+    const bodyOpenEnd = html.indexOf('>', bodyStart);
+    if (bodyOpenEnd < 0) {
+      bodyInner = html;
+    } else {
+      const bodyEnd = lower.lastIndexOf('</body>');
+      bodyInner = bodyEnd > bodyOpenEnd
+        ? html.slice(bodyOpenEnd + 1, bodyEnd)
+        : html.slice(bodyOpenEnd + 1);
+    }
+  }
+
+  // Tabellen ohne expliziten border-Wert bekommen border="0" - sonst rendert
+  // Outlook/Word/eM Client beim Einfuegen schwarze Default-Rahmen um jede
+  // Tabellen-Zelle (typisches Symptom bei Signaturen).
+  bodyInner = bodyInner.replace(/<table\b([^>]*)>/gi, (_full, attrs: string) => {
+    if (/\bborder\s*=/.test(attrs)) return `<table${attrs}>`;
+    return `<table border="0"${attrs}>`;
+  });
+
+  // Zusatz-Reset fuer Tabellen ohne CSS-Direktiven.
+  const defaultReset = '<style>table{border-collapse:collapse;}</style>';
+
+  return defaultReset + styles.join('') + bodyInner;
 }
 
 export interface FormatOptions {

@@ -335,11 +335,3 @@ export function snippet(data: EmailData, maxLen = 160): string {
   if (raw.length <= maxLen) return raw;
   return raw.slice(0, maxLen).trimEnd() + '…';
 }
-  };
-}
-
-export function snippet(data: EmailData, maxLen = 160): string {
-  const raw = (data.body || '').replace(/\s+/g, ' ').trim();
-  if (raw.length <= maxLen) return raw;
-  return raw.slice(0, maxLen).trimEnd() + '…';
-}

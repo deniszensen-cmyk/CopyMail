@@ -31,6 +31,24 @@ export interface Settings {
    * strikten WYSIWYG-Editoren ohne Tabellen-Rahmen-Probleme.
    */
   stripSignature: boolean;
+  /**
+   * Wenn true: jeder Copy-Vorgang wird in der lokalen Zwischenablage-
+   * Historie gespeichert. Zugriff per Strg+H oder Toolbar-Button.
+   */
+  historyEnabled: boolean;
+  /**
+   * 'session'   = Historie nur im aktuellen App-Lauf, beim Neustart leer.
+   * 'persistent'= Historie wird auf Disk gespeichert (userData bzw. localStorage).
+   * In beiden Modi rotieren ungepinnte Einträge bei Überlauf weg; gepinnte
+   * Einträge bleiben.
+   */
+  historyRetention: 'session' | 'persistent';
+  /**
+   * Wenn true: System-Zwischenablage wird beobachtet (Win+V-Stil). Alles
+   * was außerhalb von CopyMail mit Strg+C kopiert wird, landet auch im
+   * Verlauf. Default aus aus Datenschutz-Gründen (Mandanten-PC).
+   */
+  watchSystemClipboard: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -46,6 +64,9 @@ export const DEFAULT_SETTINGS: Settings = {
   forwardTemplateHtml: null,
   stripQuotedHistory: false,
   stripSignature: false,
+  historyEnabled: true,
+  historyRetention: 'persistent',
+  watchSystemClipboard: false,
 };
 
 const LS_KEY = 'copymail.settings.v1';

@@ -333,10 +333,16 @@ export function formatForwardedEmail(
     const inner = extractBody(sourceHtml);
     bodyHtml = `<div style="font-family:Calibri,sans-serif;font-size:12pt;">${sanitizeMailHtml(inner, !!opts.allowExternalImages)}</div>`;
   } else {
+    // Plain-Text-Pfad: Absaetze werden zu <p>-Blocks.
+    // margin-bottom 12pt entspricht Word-Default (Nach: 8pt + Zeilen-Spacing)
+    // und sorgt dafuer, dass Anrede, Inhalts-Absaetze, Gruß und Name visuell
+    // wie in einer normalen Mail mit Leerzeilen voneinander getrennt sind.
+    // Der letzte Absatz haengt nicht durch, da das Ziel-Programm den Trailing-
+    // Whitespace ohnehin oft schluckt.
     const paragraphs = bodyText.split(/\r?\n\s*\r?\n/);
     bodyHtml = paragraphs
       .map((para) =>
-        `<p style="margin:0;font-family:Calibri,sans-serif;font-size:12pt;">${escHtml(para).replace(/\r?\n/g, '<br>')}</p>`,
+        `<p style="margin:0 0 12pt 0;font-family:Calibri,sans-serif;font-size:12pt;">${escHtml(para).replace(/\r?\n/g, '<br>')}</p>`,
       )
       .join('');
   }

@@ -65,6 +65,88 @@ function saveConfig(cfg) {
   }
 }
 
+function historyPath() {
+  return path.join(app.getPath('userData'), 'clipboard-history.json');
+}
+
+function loadHistory() {
+  try {
+    const raw = fs.readFileSync(historyPath(), 'utf8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(entries) {
+  try {
+    fs.mkdirSync(path.dirname(historyPath()), { recursive: true });
+    fs.writeFileSync(historyPath(), JSON.stringify(entries, null, 0), 'utf8');
+    return true;
+  } catch (err) {
+    log.error('saveHistory failed:', err);
+    return false;
+  }
+}
+
+// ---- Clipboard-Watcher (Win+V-Stil) ----------------------------------------
+//
+// Pollt das System-Clipboard und sendet bei Aenderung ein Event an den
+// Renderer, der den Eintrag dann in seinen Verlauf einfuegt.
+//
+// Suspend-Mechanik: wenn CopyMail selbst etwas schreibt, melden wir die
+// erwartete Text-Signatur kurz vorher per IPC.Watcher.Suspend. Der Watcher
+// ueberspringt dann genau diesen Inhalt einmal - damit das eigene Forward
+// nicht doppelt im Verlauf erscheint.
+let watcherInterval = null;
+let watcherLastSeen = '';
+let watcherSuspendUntil = 0;
+let watcherSuspendedText = '';
+
+function watcherTick() {
+  if (!mainWindow) return;
+  let text = '';
+  try { text = clipboard.readText() || ''; } catch { return; }
+  if (!text) return;
+  if (text === watcherLastSeen) return;
+
+  // Suspend-Check: wenn wir selbst diesen Inhalt geschrieben haben, einmal
+  // ueberspringen.
+  const now = Date.now();
+  if (now < watcherSuspendUntil && text === watcherSuspendedText) {
+    watcherLastSeen = text;
+    watcherSuspendUntil = 0;
+    return;
+  }
+
+  watcherLastSeen = text;
+  let html = '';
+  try { html = clipboard.readHTML() || ''; } catch { /* ignore */ }
+  try {
+    mainWindow.webContents.send(IPC.Watcher.Changed, { text, html });
+  } catch { /* ignore */ }
+}
+
+function startWatcher() {
+  if (watcherInterval) return;
+  try { watcherLastSeen = clipboard.readText() || ''; } catch { watcherLastSeen = ''; }
+  watcherInterval = setInterval(watcherTick, 800);
+  log.info('Clipboard-Watcher gestartet (Poll 800ms).');
+}
+
+function stopWatcher() {
+  if (!watcherInterval) return;
+  clearInterval(watcherInterval);
+  watcherInterval = null;
+  log.info('Clipboard-Watcher gestoppt.');
+}
+
+function suspendWatcher(text) {
+  watcherSuspendedText = text || '';
+  watcherSuspendUntil = Date.now() + 3000;
+}
+
 function installCsp() {
   // In Production laeuft die App mit file:// als Origin. Wir muessen file:
   // explizit erlauben, sonst blockt der CSP Fonts/Images/Scripte aus dem
@@ -250,7 +332,10 @@ app.on('window-all-closed', (e) => {
 });
 
 app.on('before-quit', () => { app.isQuitting = true; });
-app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch { /* ignore */ } });
+app.on('will-quit', () => {
+  try { globalShortcut.unregisterAll(); } catch { /* ignore */ }
+  try { stopWatcher(); } catch { /* ignore */ }
+});
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -273,6 +358,14 @@ ipcMain.handle(IPC.Window.Focus, () => bringToFront());
 ipcMain.handle(IPC.Config.Load, () => loadConfig());
 ipcMain.handle(IPC.Config.Save, (_e, cfg) => saveConfig(cfg ?? {}));
 ipcMain.handle(IPC.Config.Path, () => configPath());
+
+ipcMain.handle(IPC.History.Load, () => loadHistory());
+ipcMain.handle(IPC.History.Save, (_e, entries) => saveHistory(Array.isArray(entries) ? entries : []));
+ipcMain.handle(IPC.History.Clear, () => saveHistory([]));
+
+ipcMain.handle(IPC.Watcher.Start, () => { startWatcher(); return true; });
+ipcMain.handle(IPC.Watcher.Stop, () => { stopWatcher(); return true; });
+ipcMain.handle(IPC.Watcher.Suspend, (_e, text) => { suspendWatcher(text); return true; });
 
 ipcMain.handle(IPC.Files.Register, (_e, filePath) => registerFile(filePath));
 
@@ -303,6 +396,10 @@ ipcMain.handle(IPC.Clipboard.Copy, async (_event, payload) => {
     let { filePath, filePaths } = payload || {};
     if (filePath && !filePaths) filePaths = [filePath];
     filePaths = Array.isArray(filePaths) ? filePaths.filter((p) => typeof p === 'string' && p) : [];
+
+    // Wenn der Watcher laeuft, signalisiere ihm: diesen Text gleich nicht
+    // als "Fremd-Copy" einsortieren - er kommt aus CopyMail selbst.
+    if (typeof text === 'string' && text) suspendWatcher(text);
 
     if (filePaths.length > 0) {
       const valid = filePaths.filter(isAllowedPath).map((p) => path.resolve(p));

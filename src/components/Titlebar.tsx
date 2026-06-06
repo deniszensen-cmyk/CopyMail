@@ -1,4 +1,4 @@
-import { Pin, Minus, Square, X, Copy as CopySquare, Settings as SettingsIcon, HelpCircle } from 'lucide-react';
+import { Pin, Minus, Square, X, Copy as CopySquare, Settings as SettingsIcon, HelpCircle, History } from 'lucide-react';
 
 interface Props {
   isElectron: boolean;
@@ -10,12 +10,15 @@ interface Props {
   onClose: () => void;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
+  onOpenHistory?: () => void;
+  historyCount?: number;
 }
 
 export function Titlebar(props: Props) {
   const {
     isElectron, alwaysOnTop, isMaximized,
     onTogglePin, onMinimize, onToggleMaximize, onClose, onOpenSettings, onOpenHelp,
+    onOpenHistory, historyCount,
   } = props;
 
   return (
@@ -23,6 +26,41 @@ export function Titlebar(props: Props) {
       <div className="titlebar-drag">
         <span className="titlebar-title">CopyMail</span>
       </div>
+
+      {onOpenHistory && (
+        <button
+          type="button"
+          className="titlebar-btn"
+          title={`Zwischenablage-Verlauf (Strg+H)${historyCount ? ` – ${historyCount} Eintrag${historyCount === 1 ? '' : 'e'}` : ''}`}
+          aria-label="Zwischenablage-Verlauf öffnen"
+          onClick={onOpenHistory}
+          style={{ position: 'relative' }}
+        >
+          <History size={14} />
+          {!!historyCount && historyCount > 0 && (
+            <span
+              style={{
+                position: 'absolute',
+                top: -2,
+                right: -2,
+                fontSize: '0.6em',
+                background: '#6366f1',
+                color: 'white',
+                borderRadius: '50%',
+                minWidth: 14,
+                height: 14,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 3px',
+                lineHeight: 1,
+              }}
+            >
+              {historyCount > 99 ? '99+' : historyCount}
+            </span>
+          )}
+        </button>
+      )}
 
       <button
         type="button"

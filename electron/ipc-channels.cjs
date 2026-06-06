@@ -22,6 +22,17 @@ module.exports = {
   Clipboard: {
     Copy: 'copy-to-clipboard',
   },
+  History: {
+    Load: 'history:load',
+    Save: 'history:save',
+    Clear: 'history:clear',
+  },
+  Watcher: {
+    Start: 'watcher:start',
+    Stop: 'watcher:stop',
+    Suspend: 'watcher:suspend',
+    Changed: 'watcher:changed',
+  },
   Pin: {
     Set: 'set-always-on-top',
     Get: 'get-always-on-top',

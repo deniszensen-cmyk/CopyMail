@@ -3,6 +3,59 @@
 Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/)
 und [Semver](https://semver.org/lang/de/).
 
+## [1.4.0] – 2026-06-02
+
+### Neu
+
+- **Zwischenablage-Verlauf** im Win+V-Stil: alles was Sie kopieren wird in
+  einer lokalen Liste gespeichert, abrufbar per Knopf in der Titelleiste
+  oder Hotkey **Strg+H**.
+  - Erfasst **CopyMail-Forwards** automatisch (mit Subject und Absender).
+  - **Optional** auch **alles aus dem System-Clipboard** (Strg+C aus Word,
+    Browser, Outlook etc.) — Schalter „System-Zwischenablage beobachten" in
+    den Einstellungen, Default **aus** aus Datenschutz-Gründen.
+  - **Pinnen** (📌) → Eintrag bleibt im Verlauf, auch wenn ungepinnte
+    rotieren.
+  - **Löschen** (🗑️) einzeln oder „Ungepinnte löschen" als Bulk-Aktion.
+  - **Erneut kopieren** (📋) → schreibt Text+HTML+Dateipfade des Eintrags
+    zurück in die System-Zwischenablage.
+  - **Suche** filtert nach Subject, Absender, Snippet.
+  - **Source-Icon** je Karte: Mail-Icon für CopyMail-Forward,
+    Zwischenablage-Icon für System-Einträge.
+  - Auto-Rotation: maximal 50 ungepinnte Einträge, ältester fliegt raus.
+  - Zähler-Badge im Titelleisten-Button zeigt die Anzahl.
+- **Einstellungen** „Zwischenablage-Verlauf" mit drei Reglern:
+  - **An/aus** (Default an).
+  - **Persistent** (Disk in `userData/clipboard-history.json`) vs.
+    **Nur aktuelle Session** (Default persistent).
+  - **System-Zwischenablage beobachten** (Default aus).
+- **Tab-Switcher Mail ↔ Zwischenablage** im Hauptfenster (statt
+  Drawer-Overlay). **Strg+H** wechselt direkt zwischen den beiden
+  Ansichten. Beim Mail-Drop springt die Ansicht automatisch zurück
+  zur Mail.
+- **Aktivierungs-Hinweis** in der Zwischenablage-Ansicht, wenn der
+  System-Watcher noch aus ist — mit Direkt-Knopf zum Einschalten.
+
+### Verbessert
+
+- **Titelleiste klebt jetzt oben** beim Scrollen — Hilfe, Einstellungen,
+  Verlauf, Pin und Min/Max/Close immer mit einem Klick erreichbar, auch
+  wenn der Mail-Body weiter unten gescrollt wird. Leichter Blur-
+  Hintergrund, damit Inhalte nicht durchschimmern.
+- **Vertikaler Abstand zwischen Absätzen** im „Ohne Signatur"-Modus
+  (`margin:0 0 12pt 0` statt `margin:0`) — Anrede, Inhalt und Grußformel
+  sind jetzt wie in einer normalen Mail durch Leerzeilen getrennt, statt
+  aneinanderzukleben.
+
+### Intern
+
+- 8 neue Tests für `clipboardHistory.ts` (Dedup, Pin-Toggle, Rotation).
+- IPC-Channels `history:load`, `history:save`, `history:clear`.
+- Datenmodell `ClipboardEntry` mit Schema-Sanitisierung beim Laden
+  (Schutz gegen alte/fehlerhafte JSON-Dateien).
+
+---
+
 ## [1.3.7] – 2026-06-01
 
 ### Neu

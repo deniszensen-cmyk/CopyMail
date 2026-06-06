@@ -1,5 +1,6 @@
 // src/electron.d.ts
 import type { Settings } from './utils/settings';
+import type { ClipboardEntry } from './utils/clipboardHistory';
 
 export interface ClipboardPayload {
   text?: string;
@@ -30,6 +31,13 @@ export interface ElectronAPI {
   loadSettings: () => Promise<Partial<Settings> | null>;
   saveSettings: (cfg: Settings) => Promise<boolean>;
   configPath: () => Promise<string>;
+  loadClipboardHistory: () => Promise<ClipboardEntry[]>;
+  saveClipboardHistory: (entries: ClipboardEntry[]) => Promise<boolean>;
+  clearClipboardHistory: () => Promise<boolean>;
+  startWatcher: () => Promise<boolean>;
+  stopWatcher: () => Promise<boolean>;
+  suspendWatcher: (text: string) => Promise<boolean>;
+  onClipboardChange: (cb: (payload: { text: string; html: string }) => void) => () => void;
 }
 
 declare global {

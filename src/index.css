@@ -118,11 +118,18 @@ body {
   display: flex;
   align-items: stretch;
   height: 32px;
-  background: rgba(10, 15, 30, 0.85);
+  background: rgba(10, 15, 30, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border-subtle);
   -webkit-app-region: drag;
   user-select: none;
   flex-shrink: 0;
+  /* Bleibt beim Scrollen oben kleben - Hilfe/Einstellungen/Verlauf/Pin/
+     Min/Max/Close immer erreichbar, auch wenn der Mail-Body unten scrollt. */
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .titlebar-drag {

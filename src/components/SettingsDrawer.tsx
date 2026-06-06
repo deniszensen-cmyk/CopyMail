@@ -92,6 +92,42 @@ export function SettingsDrawer({ open, settings, onChange, onClose, reduceMotion
                       onChange={(e) => onChange({ stripSignature: e.target.checked })}
                     />
                   </Field>
+                  <Field
+                    label="Zwischenablage-Verlauf"
+                    hint="Wenn an: jeder Copy-Vorgang wird in einer lokalen Liste gespeichert. Per Strg+H oder Verlauf-Knopf in der Titelleiste aufrufen, anpinnen oder löschen."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={settings.historyEnabled}
+                      onChange={(e) => onChange({ historyEnabled: e.target.checked })}
+                    />
+                  </Field>
+                  <Field
+                    label="Verlauf-Speicherung"
+                    hint={'„Persistent" = Verlauf bleibt nach App-Neustart erhalten (in userData). „Nur Session" = Verlauf wird nicht auf Disk gespeichert; bei jeder neuen App-Sitzung leer. Gepinnte Einträge bleiben in beiden Modi solange die App läuft.'}
+                  >
+                    <select
+                      value={settings.historyRetention}
+                      onChange={(e) =>
+                        onChange({ historyRetention: e.target.value as 'session' | 'persistent' })
+                      }
+                      disabled={!settings.historyEnabled}
+                    >
+                      <option value="persistent">Persistent (Disk)</option>
+                      <option value="session">Nur aktuelle Session</option>
+                    </select>
+                  </Field>
+                  <Field
+                    label="System-Zwischenablage beobachten"
+                    hint="Wenn an: ALLES was Sie außerhalb von CopyMail mit Strg+C kopieren (aus Word, Browser, Outlook etc.) landet auch im Verlauf. Standard aus aus Datenschutz-Gründen — auf Mandanten-PCs nur bewusst aktivieren."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={settings.watchSystemClipboard}
+                      onChange={(e) => onChange({ watchSystemClipboard: e.target.checked })}
+                      disabled={!settings.historyEnabled}
+                    />
+                  </Field>
                 </>
               )}
 

@@ -27,6 +27,17 @@ export const IPC = {
   Clipboard: {
     Copy: 'copy-to-clipboard',
   },
+  History: {
+    Load: 'history:load',
+    Save: 'history:save',
+    Clear: 'history:clear',
+  },
+  Watcher: {
+    Start: 'watcher:start',
+    Stop: 'watcher:stop',
+    Suspend: 'watcher:suspend',
+    Changed: 'watcher:changed',
+  },
   Pin: {
     Set: 'set-always-on-top',
     Get: 'get-always-on-top',
@@ -38,4 +49,6 @@ export type IpcChannel =
   | (typeof IPC.Config)[keyof typeof IPC.Config]
   | (typeof IPC.Files)[keyof typeof IPC.Files]
   | (typeof IPC.Clipboard)[keyof typeof IPC.Clipboard]
+  | (typeof IPC.History)[keyof typeof IPC.History]
+  | (typeof IPC.Watcher)[keyof typeof IPC.Watcher]
   | (typeof IPC.Pin)[keyof typeof IPC.Pin];

@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Mail, Upload, Copy, Check, AlertCircle, RotateCcw, Loader2 } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect, useMemo, type CSSProperties } from 'react';
+import { Mail, Upload, Copy, Check, AlertCircle, RotateCcw, Loader2, History } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   processEmailFile,
@@ -20,11 +20,37 @@ import { UpdateBanner } from './components/UpdateBanner';
 import { MailList } from './components/MailList';
 import { AttachmentList } from './components/AttachmentList';
 import { SearchBar } from './components/SearchBar';
+import { ClipboardHistoryView } from './components/ClipboardHistoryView';
+import {
+  loadHistory,
+  saveHistory,
+  addEntry,
+  togglePin as togglePinEntry,
+  removeEntry,
+  clearUnpinned,
+  makeEntry,
+  makeSystemEntry,
+  type ClipboardEntry,
+} from './utils/clipboardHistory';
 import { highlight } from './utils/highlight';
 import './index.css';
 
 declare const __APP_VERSION__: string;
 const appVersion: string = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
+
+function tabBtnStyle(active: boolean): CSSProperties {
+  return {
+    padding: '6px 14px',
+    fontSize: '0.85em',
+    fontWeight: active ? 600 : 500,
+    borderRadius: 6,
+    border: 'none',
+    cursor: 'pointer',
+    background: active ? 'rgba(99,102,241,0.6)' : 'transparent',
+    color: active ? '#fff' : 'inherit',
+    transition: 'background 0.15s',
+  };
+}
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
@@ -59,6 +85,8 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [history, setHistory] = useState<ClipboardEntry[]>([]);
+  const [viewMode, setViewMode] = useState<'mail' | 'clipboard'>('mail');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const copyBtnRef = useRef<HTMLButtonElement>(null);
@@ -95,6 +123,59 @@ function App() {
       if (r.newer && r.remote) setUpdate(r.remote);
     });
   }, [settings.autoCheckUpdates, settings.updateUrl]);
+
+  // Zwischenablage-Historie laden (nur wenn persistent-Modus).
+  useEffect(() => {
+    if (!settings.historyEnabled || settings.historyRetention !== 'persistent') return;
+    let cancelled = false;
+    loadHistory().then((entries) => {
+      if (!cancelled) setHistory(entries);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.historyEnabled, settings.historyRetention]);
+
+  // Bei jeder Änderung der Historie persistieren (im persistent-Modus).
+  useEffect(() => {
+    if (!settings.historyEnabled || settings.historyRetention !== 'persistent') return;
+    saveHistory(history).catch(() => undefined);
+  }, [history, settings.historyEnabled, settings.historyRetention]);
+
+  // Strg+H wechselt zwischen Mail- und Zwischenablage-Ansicht.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && (e.key === 'h' || e.key === 'H')) {
+        e.preventDefault();
+        setViewMode((v) => (v === 'mail' ? 'clipboard' : 'mail'));
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // System-Clipboard-Watcher: pollt im Main-Prozess das System-Clipboard und
+  // sendet Aenderungs-Events. Aktiv nur in Electron + wenn beide Settings an.
+  useEffect(() => {
+    if (!isElectron || !settings.historyEnabled || !settings.watchSystemClipboard) return;
+    const api = window.electronAPI!;
+    let unsubscribe: (() => void) | null = null;
+    api.startWatcher().then(() => {
+      unsubscribe = api.onClipboardChange((payload) => {
+        const text = (payload?.text ?? '').trim();
+        if (!text) return;
+        const sysEntry = makeSystemEntry({
+          text: payload.text,
+          html: payload.html,
+        });
+        setHistory((h) => addEntry(sysEntry, h));
+      });
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+      api.stopWatcher();
+    };
+  }, [settings.historyEnabled, settings.watchSystemClipboard]);
 
   // "Mail-Verlauf abschneiden" - Per-Mail-Override schlaegt Settings-Default.
   const stripQuotes = stripQuotesOverride ?? settings.stripQuotedHistory;
@@ -245,6 +326,8 @@ function App() {
       setActiveIndex(0);
       // Beim Drop alle Mails standardmaessig auswaehlen (fuer Combined-Text).
       setSelectedIndices(new Set(processed.map((_, i) => i)));
+      // Wenn Mails reinkommen, zur Mail-Ansicht zurueckwechseln.
+      if (processed.length > 0) setViewMode('mail');
       if (rejected.length > 0) setError(`Übersprungen: ${rejected.join(' · ')}`);
       if (!reduceMotion) setShowPulse(true);
     } catch (err: unknown) {
@@ -280,6 +363,7 @@ function App() {
     }
     setShowPulse(false);
     setIsCopying(true);
+    let success = false;
     try {
       if (isElectron) {
         const data: { text?: string; html?: string; filePaths?: string[] } = {};
@@ -289,13 +373,34 @@ function App() {
         }
         if (hasFilePaths && effectiveCopyMode === 'file') data.filePaths = filePaths;
         const result = await window.electronAPI!.copyToClipboard(data);
-        setCopied(result.success);
+        success = !!result.success;
+        setCopied(success);
         setError(result.partial || !result.success ? result.message ?? null : null);
-        if (result.success) setTimeout(() => setCopied(false), 2500);
+        if (success) setTimeout(() => setCopied(false), 2500);
       } else if (effectiveCopyMode === 'text') {
         await browserClipboardWrite(formattedContent.text, formattedContent.html);
+        success = true;
         setCopied(true);
         setTimeout(() => setCopied(false), 2500);
+      }
+      // Erfolgreich kopiert -> in Verlauf eintragen, wenn aktiv.
+      if (success && settings.historyEnabled) {
+        const isMulti = selectedEntries.length > 1;
+        const headData = isMulti ? selectedEntries[0]!.data : emailData;
+        if (headData) {
+          const entry = makeEntry({
+            subject: isMulti
+              ? `${headData.subject} (+${selectedEntries.length - 1} weitere)`
+              : headData.subject,
+            from: headData.from,
+            date: headData.date,
+            text: formattedContent.text,
+            html: formattedContent.html,
+            filePaths: effectiveCopyMode === 'file' ? filePaths : [],
+            origin: isMulti ? 'multi' : 'single',
+          });
+          setHistory((h) => addEntry(entry, h));
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kopieren fehlgeschlagen.');
@@ -326,18 +431,69 @@ function App() {
         stripQuotedHistory: stripQuotes,
         stripSignature: stripSig,
       });
+      let success = false;
       if (isElectron) {
         const res = await window.electronAPI!.copyToClipboard({
           text: formatted.text,
           html: formatted.html,
         });
-        return { success: !!res.success };
+        success = !!res.success;
+      } else {
+        await browserClipboardWrite(formatted.text, formatted.html);
+        success = true;
       }
-      await browserClipboardWrite(formatted.text, formatted.html);
-      return { success: true };
+      if (success && settings.historyEnabled) {
+        const histEntry = makeEntry({
+          subject: entry.data.subject,
+          from: entry.data.from,
+          date: entry.data.date,
+          text: formatted.text,
+          html: formatted.html,
+          filePaths: [],
+          origin: 'single',
+        });
+        setHistory((h) => addEntry(histEntry, h));
+      }
+      return { success };
     } catch {
       return { success: false };
     }
+  };
+
+  /** Erneutes Kopieren eines Verlaufs-Eintrags. */
+  const handleHistoryCopy = async (entry: ClipboardEntry): Promise<void> => {
+    try {
+      if (isElectron) {
+        await window.electronAPI!.copyToClipboard({
+          text: entry.text,
+          html: entry.html,
+          filePaths: entry.filePaths.length > 0 ? entry.filePaths : undefined,
+        });
+      } else {
+        await browserClipboardWrite(entry.text, entry.html);
+      }
+      // Eintrag wird "aufgefrischt" (capturedAt aktualisiert) durch addEntry-Dedup.
+      const refreshed = makeEntry({
+        subject: entry.subject,
+        from: entry.from,
+        date: entry.date,
+        text: entry.text,
+        html: entry.html,
+        filePaths: entry.filePaths,
+        origin: 'history-replay',
+      });
+      setHistory((h) => addEntry(refreshed, h));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erneutes Kopieren fehlgeschlagen.');
+    }
+  };
+
+  const handleHistoryTogglePin = (id: string) => setHistory((h) => togglePinEntry(id, h));
+  const handleHistoryRemove = (id: string) => setHistory((h) => removeEntry(id, h));
+  const handleHistoryClearUnpinned = () => {
+    setHistory((h) => clearUnpinned(h));
   };
 
   /** Drag-out für eine einzelne Mail aus der Liste. */
@@ -393,6 +549,8 @@ function App() {
         onClose={() => isElectron && window.electronAPI!.windowClose()}
         onOpenSettings={() => setShowSettings(true)}
         onOpenHelp={() => setShowHelp(true)}
+        onOpenHistory={settings.historyEnabled ? () => setViewMode('clipboard') : undefined}
+        historyCount={settings.historyEnabled ? history.length : 0}
       />
 
       <UpdateBanner
@@ -401,6 +559,7 @@ function App() {
         onDismiss={() => setUpdate(null)}
         reduceMotion={reduceMotion}
       />
+
 
       <div className="container">
         <motion.div
@@ -422,8 +581,67 @@ function App() {
             <p className="subtitle">
               Ziehe eine oder mehrere .msg/.eml-Dateien hinein – Text kopieren oder Maildateien anhängen.
             </p>
+            {settings.historyEnabled && (
+              <div
+                role="tablist"
+                aria-label="Ansicht wechseln"
+                style={{
+                  display: 'inline-flex',
+                  gap: 4,
+                  marginTop: 12,
+                  padding: 3,
+                  background: 'rgba(255,255,255,0.06)',
+                  borderRadius: 8,
+                }}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={viewMode === 'mail'}
+                  onClick={() => setViewMode('mail')}
+                  style={tabBtnStyle(viewMode === 'mail')}
+                  title="Mail-Ansicht (Strg+H schaltet um)"
+                >
+                  Mail
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={viewMode === 'clipboard'}
+                  onClick={() => setViewMode('clipboard')}
+                  style={tabBtnStyle(viewMode === 'clipboard')}
+                  title="Zwischenablage-Verlauf (Strg+H schaltet um)"
+                >
+                  Zwischenablage
+                  {history.length > 0 && (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontSize: '0.75em',
+                        background: 'rgba(99,102,241,0.4)',
+                        borderRadius: 8,
+                        padding: '1px 6px',
+                      }}
+                    >
+                      {history.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
           </header>
 
+          {viewMode === 'clipboard' && settings.historyEnabled ? (
+            <ClipboardHistoryView
+              entries={history}
+              watcherActive={settings.watchSystemClipboard}
+              onTogglePin={handleHistoryTogglePin}
+              onRemove={handleHistoryRemove}
+              onCopy={handleHistoryCopy}
+              onClearUnpinned={handleHistoryClearUnpinned}
+              onActivateWatcher={() => updateSettings({ watchSystemClipboard: true })}
+            />
+          ) : (
           <AnimatePresence mode="wait">
             {!emailData ? (
               <motion.div
@@ -608,6 +826,7 @@ function App() {
               </motion.div>
             )}
           </AnimatePresence>
+          )}
 
           <AnimatePresence>
             {error && (

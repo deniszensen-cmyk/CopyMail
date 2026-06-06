@@ -8,6 +8,13 @@ ipcRenderer.on(IPC.Window.MaximizeChanged, (_e, isMax) => {
   }
 });
 
+const watcherListeners = new Set();
+ipcRenderer.on(IPC.Watcher.Changed, (_e, payload) => {
+  for (const cb of watcherListeners) {
+    try { cb(payload); } catch { /* ignore */ }
+  }
+});
+
 contextBridge.exposeInMainWorld('electronAPI', {
   setAlwaysOnTop: (value) => ipcRenderer.invoke(IPC.Pin.Set, !!value),
   getAlwaysOnTop: () => ipcRenderer.invoke(IPC.Pin.Get),
@@ -30,4 +37,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadSettings: () => ipcRenderer.invoke(IPC.Config.Load),
   saveSettings: (cfg) => ipcRenderer.invoke(IPC.Config.Save, cfg),
   configPath: () => ipcRenderer.invoke(IPC.Config.Path),
+  loadClipboardHistory: () => ipcRenderer.invoke(IPC.History.Load),
+  saveClipboardHistory: (entries) => ipcRenderer.invoke(IPC.History.Save, entries),
+  clearClipboardHistory: () => ipcRenderer.invoke(IPC.History.Clear),
+  startWatcher: () => ipcRenderer.invoke(IPC.Watcher.Start),
+  stopWatcher: () => ipcRenderer.invoke(IPC.Watcher.Stop),
+  suspendWatcher: (text) => ipcRenderer.invoke(IPC.Watcher.Suspend, text),
+  onClipboardChange: (cb) => {
+    if (typeof cb !== 'function') return () => undefined;
+    watcherListeners.add(cb);
+    return () => watcherListeners.delete(cb);
+  },
 });

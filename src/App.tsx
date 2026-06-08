@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo, type CSSProperties } from 'react';
-import { Mail, Upload, Copy, Check, AlertCircle, RotateCcw, Loader2, History } from 'lucide-react';
+import { Mail, Upload, Copy, Check, AlertCircle, RotateCcw, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   processEmailFile,

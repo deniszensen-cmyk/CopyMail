@@ -70,7 +70,7 @@ export async function saveHistory(entries: ClipboardEntry[]): Promise<void> {
     }
     let serialized = JSON.stringify(entries);
     // Browser-Limit: solange zu groß, älteste ungepinnte rauskickern.
-    let work = entries.slice();
+    const work = entries.slice();
     while (serialized.length > BROWSER_MAX_BYTES && work.some((e) => !e.pinned)) {
       const idx = findOldestUnpinnedIndex(work);
       if (idx < 0) break;

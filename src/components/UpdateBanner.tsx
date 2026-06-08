@@ -64,7 +64,6 @@ export function UpdateBanner({ update, onOpen, onDismiss, reduceMotion }: Props)
             >
               <div
                 className="release-notes"
-                // eslint-disable-next-line react/no-danger
                 dangerouslySetInnerHTML={{ __html: renderReleaseNotes(update.notes ?? '') }}
               />
             </motion.div>
